@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shutil
+import sys
 
 from flask import Flask, Response, jsonify, render_template_string, request, send_file
 from markupsafe import Markup, escape
@@ -30,10 +32,32 @@ FIELD_LABELS = {
     "description": "תיאור",
 }
 
+def app_base_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)
+
+    return Path(__file__).resolve().parent
+
+
+def app_data_dir() -> Path:
+    if "LABEL_MAKER_DATA_DIR" in os.environ:
+        return Path(os.environ["LABEL_MAKER_DATA_DIR"]).expanduser()
+
+    if getattr(sys, "frozen", False):
+        if os.name == "nt":
+            return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "LabelMaker"
+
+        return Path(sys.executable).resolve().parent
+
+    return app_base_dir()
+
+
+BASE_DIR = app_base_dir()
+DATA_DIR = app_data_dir()
 MAX_TEXTURE_SIZE = (900, 900)
-STATE_PATH = Path(".label_state.json")
-BLENDS_PATH = Path("blends.csv")
-TEXTURES_DIR = Path("textures")
+STATE_PATH = DATA_DIR / ".label_state.json"
+BLENDS_PATH = DATA_DIR / "blends.csv"
+TEXTURES_DIR = DATA_DIR / "textures"
 ADMIN_PASSWORD = os.environ.get("LABEL_ADMIN_PASSWORD", "coffee")
 BLEND_FIELDNAMES = [
     "blend_id",
@@ -546,6 +570,8 @@ def normalize_roast_date(value: str) -> str:
 
 
 def load_blends() -> list[dict[str, str]]:
+    ensure_runtime_data()
+
     if not BLENDS_PATH.exists():
         return []
 
@@ -567,12 +593,26 @@ def load_blends() -> list[dict[str, str]]:
 
 
 def ensure_blends_file() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
     if BLENDS_PATH.exists():
         return
 
     with BLENDS_PATH.open("w", newline="", encoding="utf-8") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=BLEND_FIELDNAMES)
         writer.writeheader()
+
+
+def ensure_runtime_data() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    bundled_blends = BASE_DIR / "blends.csv"
+    bundled_textures = BASE_DIR / "textures"
+
+    if not BLENDS_PATH.exists() and bundled_blends.exists():
+        shutil.copy2(bundled_blends, BLENDS_PATH)
+
+    if not TEXTURES_DIR.exists() and bundled_textures.exists():
+        shutil.copytree(bundled_textures, TEXTURES_DIR)
 
 
 def blend_choices(blends: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -603,10 +643,13 @@ def save_texture_file(blend_id: str, texture_bytes: bytes | None) -> str:
     if not texture_bytes:
         return ""
 
-    TEXTURES_DIR.mkdir(exist_ok=True)
+    TEXTURES_DIR.mkdir(parents=True, exist_ok=True)
     texture_path = TEXTURES_DIR / f"{texture_file_stem(blend_id)}.jpg"
     texture_path.write_bytes(texture_bytes)
-    return str(texture_path)
+    try:
+        return str(texture_path.relative_to(DATA_DIR))
+    except ValueError:
+        return str(texture_path)
 
 
 def save_blend_to_csv(blend_id: str, name: str, label_data: LabelData) -> str:
@@ -650,6 +693,7 @@ def save_blend_to_csv(blend_id: str, name: str, label_data: LabelData) -> str:
     if not replaced:
         rows.append(next_row)
 
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     with BLENDS_PATH.open("w", newline="", encoding="utf-8") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=BLEND_FIELDNAMES)
         writer.writeheader()
@@ -711,7 +755,7 @@ def texture_from_path(texture_path: str) -> bytes | None:
 
     path = Path(texture_path)
     if not path.is_absolute():
-        path = Path.cwd() / path
+        path = DATA_DIR / path
 
     try:
         return prepare_texture(path.read_bytes())
@@ -786,6 +830,7 @@ def save_label_state(label_data: LabelData) -> None:
         }
     )
 
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     STATE_PATH.write_text(
         json.dumps(state, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -924,8 +969,8 @@ def index():
 @app.get("/font/<name>")
 def font(name):
     fonts = {
-        "heebo-regular.ttf": Path("fonts/Heebo/static/Heebo-Regular.ttf"),
-        "heebo-bold.ttf": Path("fonts/Heebo/static/Heebo-Bold.ttf"),
+        "heebo-regular.ttf": BASE_DIR / "fonts/Heebo/static/Heebo-Regular.ttf",
+        "heebo-bold.ttf": BASE_DIR / "fonts/Heebo/static/Heebo-Bold.ttf",
     }
 
     if name not in fonts:

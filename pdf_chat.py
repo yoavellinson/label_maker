@@ -1,6 +1,7 @@
 from pathlib import Path
 from dataclasses import dataclass
 from io import BytesIO
+import sys
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
@@ -30,8 +31,15 @@ class LabelData:
     texture_bytes: bytes | None = None
 
 
+def app_base_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)
+
+    return Path(__file__).resolve().parent
+
+
 # ---------- Fonts ----------
-FONT_DIR = Path("fonts/Heebo/static")
+FONT_DIR = app_base_dir() / "fonts/Heebo/static"
 
 pdfmetrics.registerFont(
     TTFont("Heebo", str(FONT_DIR / "Heebo-Regular.ttf"))

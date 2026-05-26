@@ -1,5 +1,6 @@
 from base64 import b64decode, b64encode
 import csv
+from dataclasses import replace
 from datetime import date, datetime
 from io import BytesIO
 import json
@@ -26,10 +27,49 @@ FIELD_LABELS = {
     "badge_line_1": "שורה ראשונה בתג",
     "badge_line_2": "שורה שנייה בתג",
     "roast_level": "דרגת קלייה",
+    "cup_score": "Cup score",
     "note_1": "טעם 1",
     "note_2": "טעם 2",
     "note_3": "טעם 3",
+    "specialty_variety": "זן",
+    "specialty_process": "עיבוד",
+    "specialty_pill_1": "כפתור ספיישלטי 1",
+    "specialty_pill_2": "כפתור ספיישלטי 2",
+    "specialty_pill_3": "כפתור ספיישלטי 3",
+    "specialty_pill_4": "כפתור ספיישלטי 4",
+    "specialty_pill_5": "כפתור ספיישלטי 5",
+    "specialty_pill_6": "כפתור ספיישלטי 6",
     "description": "תיאור",
+}
+
+FIELD_TIPS = {
+    "selected_blend_id": "בחר בלנד קיים מתוך blends.csv ולטעינה לחץ על טעינת בלנד.",
+    "save_blend_id": "מזהה ייחודי לשמירה ב-CSV. אם המזהה כבר קיים, השורה תעודכן.",
+    "save_blend_name": "שם ידידותי שיופיע ברשימת הבלנדים.",
+    "admin_password": "סיסמה הדרושה רק לשמירת בלנד ל-CSV.",
+    "badge_line_1": "השורה הראשית בתוך העיגול. זו השורה הגדולה ביותר.",
+    "badge_line_2": "שורה שנייה בתוך העיגול. אפשר להשאיר ריק.",
+    "roast_level": "דרגת הקלייה שמופיעה בתוך העיגול, אלא אם מצב specialty coffee פעיל.",
+    "specialty_coffee": "כאשר פעיל, העיגול הופך כהה ומציג specialty / coffee במקום טקסט העיגול הרגיל.",
+    "cup_score": "ציון הקפה שיופיע בפס Cup Score במצב specialty coffee. אפשר להשאיר ריק.",
+    "note_1": "תו טעם ראשון. רוחב הכפתור יותאם אוטומטית לאורך הטקסט.",
+    "note_2": "תו טעם שני. בחר טעם מודגש כדי למלא אותו בצבע.",
+    "note_3": "תו טעם שלישי. אפשר להשתמש ביותר ממילה אחת.",
+    "specialty_variety": "הזן שיופיע מתחת לחלק העליון, למשל היירלום.",
+    "specialty_process": "שיטת העיבוד שתופיע מתחת לזן, למשל טבעי או שטוף.",
+    "specialty_pill_1": "כפתור טעם ראשון בספיישלטי. הכפתורים מסודרים בשתי עמודות.",
+    "specialty_pill_2": "כפתור טעם שני בספיישלטי. אין כפתור מודגש במצב הזה.",
+    "specialty_pill_3": "כפתור טעם שלישי בספיישלטי.",
+    "specialty_pill_4": "כפתור טעם רביעי בספיישלטי.",
+    "specialty_pill_5": "כפתור טעם חמישי בספיישלטי.",
+    "specialty_pill_6": "כפתור טעם שישי בספיישלטי.",
+    "highlighted_note": "איזה אחד משלושת טעמי הכפתורים יהיה מודגש.",
+    "description": "טקסט חופשי. אפשר כמה שורות; התווית תקטין ותשבור שורות לפי הצורך.",
+    "bottom_mode": "בחר אם התחתית תציג תאריך קלייה או הפתעה.",
+    "roast_date_auto": "כאשר פעיל, התאריך מתעדכן אוטומטית לתאריך של היום מהמחשב.",
+    "roast_date": "תאריך בפורמט dd/mm/yyyy. אפשר להשאיר ריק כדי למלא ידנית אחרי ההדפסה.",
+    "accent_color": "צבע מוביל לתווית: פס עליון, מסגרות והדגשות.",
+    "texture_file": "תמונה שתמלא את החלק העליון. התמונות נדחסות לפני שמירה.",
 }
 
 def app_base_dir() -> Path:
@@ -65,12 +105,23 @@ BLEND_FIELDNAMES = [
     "badge_line_1",
     "badge_line_2",
     "roast_level",
+    "specialty_coffee",
+    "cup_score",
     "note_1",
     "note_2",
     "note_3",
+    "specialty_variety",
+    "specialty_process",
+    "specialty_pill_1",
+    "specialty_pill_2",
+    "specialty_pill_3",
+    "specialty_pill_4",
+    "specialty_pill_5",
+    "specialty_pill_6",
     "highlighted_note",
     "description",
     "bottom_mode",
+    "roast_date_auto",
     "roast_date",
     "accent_color",
     "texture_path",
@@ -136,7 +187,11 @@ TEMPLATE = """
     .preview {
       display: flex;
       flex-direction: column;
+      align-items: center;
       gap: 12px;
+      position: sticky;
+      top: 24px;
+      align-self: start;
     }
 
     .toolbar {
@@ -145,6 +200,7 @@ TEMPLATE = """
       justify-content: space-between;
       gap: 12px;
       direction: rtl;
+      width: 100%;
     }
 
     h1 {
@@ -169,13 +225,30 @@ TEMPLATE = """
       font: inherit;
     }
 
-    iframe {
-      width: 100%;
-      height: calc(100vh - 92px);
-      min-height: 640px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: white;
+    .toolbar-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    #pdf-preview {
+      width: min(360px, 74vw, 44vh);
+      aspect-ratio: 1 / 2;
+      height: auto;
+      min-height: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    #print-frame {
+      position: fixed;
+      width: 0;
+      height: 0;
+      border: 0;
+      opacity: 0;
+      pointer-events: none;
     }
 
     .editor {
@@ -185,6 +258,7 @@ TEMPLATE = """
       padding: 18px;
       overflow: auto;
       direction: rtl;
+      max-height: calc(100vh - 48px);
     }
 
     form {
@@ -192,22 +266,53 @@ TEMPLATE = """
       gap: 14px;
     }
 
-    fieldset {
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      position: sticky;
+      top: -18px;
+      z-index: 2;
+      padding: 0 0 12px;
+      background: var(--panel);
+    }
+
+    .tab-button {
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--ink);
+      padding: 9px 8px;
+      min-height: 40px;
+    }
+
+    .tab-button.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    .tab-panel {
       display: grid;
       gap: 10px;
       margin: 0;
-      padding: 0 0 14px;
+      padding: 0;
       border: 0;
-      border-bottom: 1px solid var(--line);
     }
 
-    fieldset:last-of-type {
-      border-bottom: 0;
-      padding-bottom: 0;
+    .tab-panel[hidden],
+    [hidden] {
+      display: none !important;
     }
 
     legend {
       margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .sublegend {
+      margin-top: 6px;
       color: var(--muted);
       font-size: 13px;
       font-weight: 700;
@@ -218,6 +323,7 @@ TEMPLATE = """
       gap: 5px;
       font-size: 13px;
       font-weight: 700;
+      cursor: help;
     }
 
     input,
@@ -273,6 +379,18 @@ TEMPLATE = """
     .choice input {
       width: auto;
       margin: 0;
+    }
+
+    .compact-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    [data-regular-only],
+    [data-specialty-only] {
+      display: grid;
+      gap: 10px;
     }
 
     input:focus,
@@ -334,9 +452,22 @@ TEMPLATE = """
         direction: rtl;
       }
 
-      iframe {
-        height: 620px;
-        min-height: 520px;
+      .preview {
+        position: static;
+      }
+
+      .editor {
+        max-height: none;
+      }
+
+      #pdf-preview {
+        width: min(82vw, 320px);
+        height: auto;
+        min-height: 0;
+      }
+
+      .tabs {
+        top: -14px;
       }
     }
   </style>
@@ -346,9 +477,13 @@ TEMPLATE = """
     <section class="preview" aria-label="תצוגה מקדימה">
       <div class="toolbar">
         <h1>עורך תווית קפה</h1>
-        <button class="download" type="submit" form="label-form" formaction="label.pdf">הורדת PDF</button>
+        <div class="toolbar-actions">
+          <button class="download" type="submit" form="label-form" formaction="label.pdf">הורדת PDF</button>
+          <button class="download secondary" type="button" id="print-button">הדפסה</button>
+        </div>
       </div>
-      <iframe id="pdf-preview" title="תצוגה מקדימה של התווית" src="data:application/pdf;base64,{{ pdf_base64 }}"></iframe>
+      <iframe id="pdf-preview" title="תצוגה מקדימה של התווית" src="data:application/pdf;base64,{{ pdf_base64 }}#toolbar=0&navpanes=0&scrollbar=0&view=Fit"></iframe>
+      <iframe id="print-frame" title="הדפסה"></iframe>
     </section>
 
     <aside class="editor" aria-label="פרטי התווית">
@@ -358,11 +493,19 @@ TEMPLATE = """
           <div class="message {{ message_type }}">{{ message }}</div>
         {% endif %}
 
-        <fieldset>
-          <legend>בלנדים</legend>
-          <label>
+        <div class="tabs" role="tablist" aria-label="עריכת תווית">
+          <button class="tab-button active" type="button" data-tab="blend">בלנד</button>
+          <button class="tab-button" type="button" data-tab="badge">תג</button>
+          <button class="tab-button" type="button" data-tab="flavors">טעמים</button>
+          <button class="tab-button" type="button" data-tab="text">טקסט</button>
+          <button class="tab-button" type="button" data-tab="advanced">מתקדם</button>
+        </div>
+
+        <fieldset class="tab-panel" data-panel="blend">
+          <legend>טעינה יומית</legend>
+          <label title="{{ tips['selected_blend_id'] }}">
             טעינה מ-CSV
-            <select name="selected_blend_id">
+            <select name="selected_blend_id" title="{{ tips['selected_blend_id'] }}">
               <option value="">בחירת בלנד</option>
               {% for blend in blends %}
                 <option value="{{ blend.id }}" {% if selected_blend == blend.id %}selected{% endif %}>{{ blend.name }}</option>
@@ -370,83 +513,104 @@ TEMPLATE = """
             </select>
           </label>
           <button type="submit" name="action" value="load_blend">טעינת בלנד</button>
-          <label>
-            מזהה לשמירה
-            <input name="save_blend_id" value="{{ selected_blend }}" dir="ltr">
+          <div class="sublegend">תחתית התווית</div>
+          <div class="choice-group">
+            <label class="choice" title="{{ tips['bottom_mode'] }}">
+              <input type="radio" name="bottom_mode" value="roast_date" {% if label.bottom_mode == "roast_date" %}checked{% endif %} title="{{ tips['bottom_mode'] }}">
+              תאריך קלייה
+            </label>
+            <label class="choice" title="{{ tips['bottom_mode'] }}">
+              <input type="radio" name="bottom_mode" value="surprise" {% if label.bottom_mode == "surprise" %}checked{% endif %} title="{{ tips['bottom_mode'] }}">
+              הפתעה!
+            </label>
+          </div>
+          <label title="{{ tips['roast_date'] }}">
+            תאריך קלייה
+            <input name="roast_date" value="{{ label.roast_date }}" inputmode="numeric" pattern="\\d{2}/\\d{2}/\\d{4}" dir="ltr" title="{{ tips['roast_date'] }}">
           </label>
-          <label>
-            שם בלנד לשמירה
-            <input name="save_blend_name" value="{{ selected_blend_name }}" dir="rtl">
-          </label>
-          <label>
-            סיסמת עריכה
-            <input type="password" name="admin_password" value="" dir="ltr">
-          </label>
-          <button type="submit" name="action" value="save_blend">שמירת בלנד ל-CSV</button>
         </fieldset>
 
-        <fieldset>
+        <fieldset class="tab-panel" data-panel="badge" hidden>
           <legend>תג מרכזי</legend>
           {{ input("badge_line_1") }}
           {{ input("badge_line_2") }}
           {{ input("roast_level") }}
+          <label class="choice" title="{{ tips['specialty_coffee'] }}">
+            <input type="checkbox" name="specialty_coffee" value="1" {% if label.specialty_coffee %}checked{% endif %} title="{{ tips['specialty_coffee'] }}">
+            Specialty coffee
+          </label>
+          <div data-specialty-only>
+            {{ input("cup_score") }}
+          </div>
         </fieldset>
 
-        <fieldset>
+        <fieldset class="tab-panel" data-panel="flavors" hidden>
           <legend>טעמים</legend>
-          {{ input("note_1") }}
-          {{ input("note_2") }}
-          {{ input("note_3") }}
-          <label>
-            טעם מודגש
-            <select name="highlighted_note">
-              {% for value in [1, 2, 3] %}
-                <option value="{{ value }}" {% if label.highlighted_note == value %}selected{% endif %}>{{ value }}</option>
-              {% endfor %}
-            </select>
-          </label>
-        </fieldset>
-
-        <fieldset>
-          <legend>תיאור</legend>
-          <label>
-            תיאור
-            <textarea name="description" dir="rtl">{{ label.description }}</textarea>
-          </label>
-        </fieldset>
-
-        <fieldset>
-          <legend>תחתית</legend>
-          <div class="choice-group">
-            <label class="choice">
-              <input type="radio" name="bottom_mode" value="roast_date" {% if label.bottom_mode == "roast_date" %}checked{% endif %}>
-              תאריך קלייה
-            </label>
-            <label class="choice">
-              <input type="radio" name="bottom_mode" value="surprise" {% if label.bottom_mode == "surprise" %}checked{% endif %}>
-              הפתעה!
+          <div data-regular-only>
+            {{ input("note_1") }}
+            {{ input("note_2") }}
+            {{ input("note_3") }}
+            <label title="{{ tips['highlighted_note'] }}">
+              טעם מודגש
+              <select name="highlighted_note" title="{{ tips['highlighted_note'] }}">
+                {% for value in [1, 2, 3] %}
+                  <option value="{{ value }}" {% if label.highlighted_note == value %}selected{% endif %}>{{ value }}</option>
+                {% endfor %}
+              </select>
             </label>
           </div>
-          <label>
-            תאריך קלייה
-            <input name="roast_date" value="{{ label.roast_date }}" inputmode="numeric" pattern="\\d{2}/\\d{2}/\\d{4}" dir="ltr">
+          <div data-specialty-only>
+            {{ input("specialty_variety") }}
+            {{ input("specialty_process") }}
+            <div class="compact-row">
+              {{ input("specialty_pill_1") }}
+              {{ input("specialty_pill_2") }}
+            </div>
+            <div class="compact-row">
+              {{ input("specialty_pill_3") }}
+              {{ input("specialty_pill_4") }}
+            </div>
+            <div class="compact-row">
+              {{ input("specialty_pill_5") }}
+              {{ input("specialty_pill_6") }}
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="tab-panel" data-panel="text" hidden>
+          <legend>תיאור</legend>
+          <label title="{{ tips['description'] }}">
+            תיאור
+            <textarea name="description" dir="rtl" title="{{ tips['description'] }}">{{ label.description }}</textarea>
           </label>
         </fieldset>
 
-        <fieldset>
-          <legend>עיצוב</legend>
-          <label>
-            צבע מוביל
-            <input type="color" name="accent_color" value="{{ label.accent_color }}">
+        <fieldset class="tab-panel" data-panel="advanced" hidden>
+          <legend>ניהול ועיצוב</legend>
+          <label title="{{ tips['save_blend_id'] }}">
+            מזהה לשמירה
+            <input name="save_blend_id" value="{{ selected_blend }}" dir="ltr" title="{{ tips['save_blend_id'] }}">
           </label>
-          <label>
+          <label title="{{ tips['save_blend_name'] }}">
+            שם בלנד לשמירה
+            <input name="save_blend_name" value="{{ selected_blend_name }}" dir="rtl" title="{{ tips['save_blend_name'] }}">
+          </label>
+          <label title="{{ tips['admin_password'] }}">
+            סיסמת עריכה
+            <input type="password" name="admin_password" value="" dir="ltr" title="{{ tips['admin_password'] }}">
+          </label>
+          <button type="submit" name="action" value="save_blend">שמירת בלנד ל-CSV</button>
+          <label title="{{ tips['accent_color'] }}">
+            צבע מוביל
+            <input type="color" name="accent_color" value="{{ label.accent_color }}" title="{{ tips['accent_color'] }}">
+          </label>
+          <label title="{{ tips['texture_file'] }}">
             טקסטורה לחלק העליון
-            <input type="file" name="texture_file" accept="image/png,image/jpeg,image/webp,image/gif">
+            <input type="file" name="texture_file" accept="image/png,image/jpeg,image/webp,image/gif" title="{{ tips['texture_file'] }}">
           </label>
         </fieldset>
 
         <div class="actions">
-          <button type="submit" name="action" value="update">עדכון תצוגה</button>
           <a class="download secondary" href="./?reset=1">איפוס</a>
         </div>
       </form>
@@ -455,12 +619,48 @@ TEMPLATE = """
   <script>
     const form = document.getElementById("label-form");
     const preview = document.getElementById("pdf-preview");
+    const printButton = document.getElementById("print-button");
+    const printFrame = document.getElementById("print-frame");
+    const tabButtons = form.querySelectorAll(".tab-button");
+    const tabPanels = form.querySelectorAll(".tab-panel");
+    const specialtyToggle = form.querySelector('input[name="specialty_coffee"]');
+    const specialtyOnly = form.querySelectorAll("[data-specialty-only]");
+    const regularOnly = form.querySelectorAll("[data-regular-only]");
     const autoFields = form.querySelectorAll(
-      'input[name="badge_line_1"], input[name="badge_line_2"], input[name="roast_level"], input[name="note_1"], input[name="note_2"], input[name="note_3"], select[name="highlighted_note"], textarea[name="description"], input[name="bottom_mode"], input[name="roast_date"], input[name="accent_color"], input[name="texture_file"]'
+      'input[name="badge_line_1"], input[name="badge_line_2"], input[name="roast_level"], input[name="specialty_coffee"], input[name="cup_score"], input[name="note_1"], input[name="note_2"], input[name="note_3"], input[name="specialty_variety"], input[name="specialty_process"], input[name="specialty_pill_1"], input[name="specialty_pill_2"], input[name="specialty_pill_3"], input[name="specialty_pill_4"], input[name="specialty_pill_5"], input[name="specialty_pill_6"], select[name="highlighted_note"], textarea[name="description"], input[name="bottom_mode"], input[name="roast_date"], input[name="accent_color"], input[name="texture_file"]'
     );
 
     let previewTimer;
     let previewController;
+
+    function selectTab(tab) {
+      const knownTabs = Array.from(tabButtons).map((button) => button.dataset.tab);
+      if (!knownTabs.includes(tab)) {
+        tab = "blend";
+      }
+
+      tabButtons.forEach((button) => {
+        const isActive = button.dataset.tab === tab;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-selected", String(isActive));
+      });
+
+      tabPanels.forEach((panel) => {
+        panel.hidden = panel.dataset.panel !== tab;
+      });
+
+      localStorage.setItem("labelMakerActiveTab", tab);
+    }
+
+    function syncSpecialtyFields() {
+      const isSpecialty = specialtyToggle && specialtyToggle.checked;
+      specialtyOnly.forEach((section) => {
+        section.hidden = !isSpecialty;
+      });
+      regularOnly.forEach((section) => {
+        section.hidden = isSpecialty;
+      });
+    }
 
     async function refreshPreview() {
       if (previewController) {
@@ -483,7 +683,7 @@ TEMPLATE = """
         }
 
         const payload = await response.json();
-        preview.src = `data:application/pdf;base64,${payload.pdf_base64}`;
+        preview.src = `data:application/pdf;base64,${payload.pdf_base64}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`;
         form.querySelector('input[name="texture_data"]').value = payload.texture_base64;
       } catch (error) {
         if (error.name !== "AbortError") {
@@ -498,10 +698,44 @@ TEMPLATE = """
     }
 
     autoFields.forEach((field) => {
-      const eventName = field.type === "file" || field.tagName === "SELECT" || field.type === "radio" || field.type === "color"
+      const eventName = field.type === "file" || field.tagName === "SELECT" || field.type === "radio" || field.type === "checkbox" || field.type === "color"
         ? "change"
         : "input";
       field.addEventListener(eventName, schedulePreview);
+    });
+
+    tabButtons.forEach((button) => {
+      button.addEventListener("click", () => selectTab(button.dataset.tab));
+    });
+
+    if (specialtyToggle) {
+      specialtyToggle.addEventListener("change", syncSpecialtyFields);
+    }
+
+    syncSpecialtyFields();
+    selectTab(localStorage.getItem("labelMakerActiveTab") || "blend");
+
+    printButton.addEventListener("click", async () => {
+      const data = new FormData(form);
+      data.set("action", "print");
+
+      const response = await fetch("label.pdf", {
+        method: "POST",
+        body: data
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      printFrame.onload = () => {
+        printFrame.contentWindow.focus();
+        printFrame.contentWindow.print();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
+      printFrame.src = url;
     });
   </script>
 </body>
@@ -510,7 +744,7 @@ TEMPLATE = """
 
 
 def default_label_data() -> LabelData:
-    return LabelData(roast_date=today_string())
+    return LabelData(roast_date_auto=True, roast_date=today_string())
 
 
 def build_label_data(args, defaults: LabelData | None = None) -> LabelData:
@@ -535,7 +769,12 @@ def build_label_data(args, defaults: LabelData | None = None) -> LabelData:
     if bottom_mode not in {"roast_date", "surprise"}:
         bottom_mode = defaults.bottom_mode
 
-    roast_date = normalize_roast_date(args.get("roast_date", defaults.roast_date))
+    if "roast_date" in args:
+        roast_date_auto = False
+        roast_date = normalize_roast_date(args.get("roast_date", ""))
+    else:
+        roast_date_auto = True
+        roast_date = today_string()
 
     accent_color = args.get("accent_color", defaults.accent_color)
     if not (len(accent_color) == 7 and accent_color.startswith("#")):
@@ -543,8 +782,10 @@ def build_label_data(args, defaults: LabelData | None = None) -> LabelData:
 
     return LabelData(
         **values,
+        specialty_coffee=parse_bool(args.get("specialty_coffee")),
         highlighted_note=highlighted_note,
         bottom_mode=bottom_mode,
+        roast_date_auto=roast_date_auto,
         roast_date=roast_date,
         accent_color=accent_color,
         texture_bytes=get_texture_bytes(defaults.texture_bytes),
@@ -567,6 +808,27 @@ def normalize_roast_date(value: str) -> str:
         return today_string()
 
     return parsed.strftime("%d/%m/%Y")
+
+
+def parse_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+
+    if value is None:
+        return False
+
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on", "כן"}
+
+
+def parse_optional_bool(value, default=False) -> bool:
+    if value is None:
+        return default
+
+    text = str(value).strip()
+    if not text:
+        return default
+
+    return parse_bool(text)
 
 
 def load_blends() -> list[dict[str, str]]:
@@ -614,9 +876,38 @@ def ensure_runtime_data() -> None:
     if not TEXTURES_DIR.exists() and bundled_textures.exists():
         shutil.copytree(bundled_textures, TEXTURES_DIR)
 
+    migrate_blends_schema()
+
+
+def migrate_blends_schema() -> None:
+    if not BLENDS_PATH.exists():
+        return
+
+    try:
+        with BLENDS_PATH.open(newline="", encoding="utf-8-sig") as csv_file:
+            reader = csv.DictReader(csv_file)
+            rows = [
+                {field: row.get(field, "") for field in BLEND_FIELDNAMES}
+                for row in reader
+            ]
+            current_fields = reader.fieldnames or []
+    except OSError:
+        return
+
+    if current_fields == BLEND_FIELDNAMES:
+        return
+
+    with BLENDS_PATH.open("w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=BLEND_FIELDNAMES)
+        writer.writeheader()
+        writer.writerows(rows)
+
 
 def blend_choices(blends: list[dict[str, str]]) -> list[dict[str, str]]:
-    return [{"id": blend["_id"], "name": blend["_name"]} for blend in blends]
+    return [
+        {"id": blend["_id"], "name": blend["_name"]}
+        for blend in sorted(blends, key=lambda blend: blend["_name"])
+    ]
 
 
 def blend_name(blend_id: str) -> str:
@@ -670,12 +961,23 @@ def save_blend_to_csv(blend_id: str, name: str, label_data: LabelData) -> str:
         "badge_line_1": label_data.badge_line_1,
         "badge_line_2": label_data.badge_line_2,
         "roast_level": label_data.roast_level,
+        "specialty_coffee": "1" if label_data.specialty_coffee else "",
+        "cup_score": label_data.cup_score,
         "note_1": label_data.note_1,
         "note_2": label_data.note_2,
         "note_3": label_data.note_3,
+        "specialty_variety": label_data.specialty_variety,
+        "specialty_process": label_data.specialty_process,
+        "specialty_pill_1": label_data.specialty_pill_1,
+        "specialty_pill_2": label_data.specialty_pill_2,
+        "specialty_pill_3": label_data.specialty_pill_3,
+        "specialty_pill_4": label_data.specialty_pill_4,
+        "specialty_pill_5": label_data.specialty_pill_5,
+        "specialty_pill_6": label_data.specialty_pill_6,
         "highlighted_note": str(label_data.highlighted_note),
         "description": label_data.description,
         "bottom_mode": label_data.bottom_mode,
+        "roast_date_auto": "1" if label_data.roast_date_auto else "0",
         "roast_date": label_data.roast_date,
         "accent_color": label_data.accent_color,
         "texture_path": texture_path,
@@ -736,11 +1038,15 @@ def label_from_blend(blend_id: str, fallback: LabelData | None = None) -> LabelD
         if not (len(accent_color) == 7 and accent_color.startswith("#")):
             accent_color = fallback.accent_color
 
+        roast_date_auto = parse_optional_bool(blend.get("roast_date_auto"), fallback.roast_date_auto)
+
         return LabelData(
             **values,
+            specialty_coffee=parse_bool(blend.get("specialty_coffee")),
             highlighted_note=highlighted_note,
             bottom_mode=bottom_mode,
-            roast_date=normalize_roast_date(blend.get("roast_date", fallback.roast_date)),
+            roast_date_auto=roast_date_auto,
+            roast_date=today_string() if roast_date_auto else normalize_roast_date(blend.get("roast_date", fallback.roast_date)),
             accent_color=accent_color,
             texture_bytes=texture_from_path(blend.get("texture_path", "")) or fallback.texture_bytes,
         )
@@ -807,9 +1113,15 @@ def load_label_state() -> LabelData | None:
 
     return LabelData(
         **values,
+        specialty_coffee=parse_bool(state.get("specialty_coffee")),
         highlighted_note=highlighted_note,
         bottom_mode=bottom_mode,
-        roast_date=normalize_roast_date(str(state.get("roast_date", defaults.roast_date))),
+        roast_date_auto=parse_optional_bool(state.get("roast_date_auto"), True),
+        roast_date=(
+            today_string()
+            if parse_optional_bool(state.get("roast_date_auto"), True)
+            else normalize_roast_date(str(state.get("roast_date", defaults.roast_date)))
+        ),
         accent_color=accent_color,
         texture_bytes=texture_bytes,
     )
@@ -822,8 +1134,10 @@ def save_label_state(label_data: LabelData) -> None:
     }
     state.update(
         {
+            "specialty_coffee": label_data.specialty_coffee,
             "highlighted_note": label_data.highlighted_note,
             "bottom_mode": label_data.bottom_mode,
+            "roast_date_auto": label_data.roast_date_auto,
             "roast_date": label_data.roast_date,
             "accent_color": label_data.accent_color,
             "texture_data": b64encode(label_data.texture_bytes or b"").decode("ascii"),
@@ -905,11 +1219,12 @@ def request_too_large(error):
 
 @app.template_global()
 def input(field):
+    tip = FIELD_TIPS.get(field, "")
     return Markup(
         f"""
-        <label>
+        <label title="{escape(tip)}">
           {escape(FIELD_LABELS[field])}
-          <input name="{escape(field)}" value="{escape(getattr(request.label_data, field))}" dir="rtl">
+          <input name="{escape(field)}" value="{escape(getattr(request.label_data, field))}" dir="rtl" title="{escape(tip)}">
         </label>
         """
     )
@@ -929,6 +1244,7 @@ def index():
         selected_blend = request.form.get("selected_blend_id", "")
         selected_blend_name = blend_name(selected_blend)
         label_data = label_from_blend(selected_blend, load_label_state() or default_label_data())
+        label_data = replace(label_data, roast_date_auto=True, roast_date=today_string())
         save_label_state(label_data)
     elif request.method == "POST" and request.form.get("action") == "save_blend":
         label_data = build_label_data(request.form, load_label_state())
@@ -963,6 +1279,7 @@ def index():
         selected_blend_name=selected_blend_name,
         message=message,
         message_type=message_type,
+        tips=FIELD_TIPS,
     )
 
 

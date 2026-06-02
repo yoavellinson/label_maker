@@ -15,6 +15,8 @@ from flask import Flask, Response, jsonify, render_template_string, request, sen
 from markupsafe import Markup, escape
 from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.exceptions import RequestEntityTooLarge
+import threading
+import time
 
 from pdf_chat import LabelData, create_label_pdf
 
@@ -930,6 +932,10 @@ def texture_file_stem(blend_id: str) -> str:
     return stem or "blend"
 
 
+def normalize_texture_path(texture_path: str) -> str:
+    return texture_path.strip().replace("\\", "/")
+
+
 def save_texture_file(blend_id: str, texture_bytes: bytes | None) -> str:
     if not texture_bytes:
         return ""
@@ -938,9 +944,9 @@ def save_texture_file(blend_id: str, texture_bytes: bytes | None) -> str:
     texture_path = TEXTURES_DIR / f"{texture_file_stem(blend_id)}.jpg"
     texture_path.write_bytes(texture_bytes)
     try:
-        return str(texture_path.relative_to(DATA_DIR))
+        return texture_path.relative_to(DATA_DIR).as_posix()
     except ValueError:
-        return str(texture_path)
+        return texture_path.as_posix()
 
 
 def save_blend_to_csv(blend_id: str, name: str, label_data: LabelData) -> str:
@@ -987,7 +993,7 @@ def save_blend_to_csv(blend_id: str, name: str, label_data: LabelData) -> str:
     for index, row in enumerate(rows):
         if row.get("blend_id") == blend_id:
             if not texture_path:
-                next_row["texture_path"] = row.get("texture_path", "")
+                next_row["texture_path"] = normalize_texture_path(row.get("texture_path", ""))
             rows[index] = next_row
             replaced = True
             break
@@ -1055,7 +1061,7 @@ def label_from_blend(blend_id: str, fallback: LabelData | None = None) -> LabelD
 
 
 def texture_from_path(texture_path: str) -> bytes | None:
-    texture_path = texture_path.strip()
+    texture_path = normalize_texture_path(texture_path)
     if not texture_path:
         return None
 
@@ -1323,6 +1329,28 @@ def label_pdf():
         mimetype="application/pdf",
         headers={"Content-Disposition": "inline; filename=coffee_label.pdf"},
     )
+
+
+@app.route("/quit", methods=["POST", "GET"])
+def quit_app():
+    """Shutdown the development server (or fall back to a hard exit).
+
+    This endpoint is intended for packaged/Windows builds that need an
+    explicit request to stop the Python process. It first attempts the
+    Werkzeug shutdown callable and then ensures process exit as a fallback.
+    """
+    # attempt to gracefully stop the Werkzeug server
+    func = request.environ.get("werkzeug.server.shutdown")
+    # schedule a forced exit shortly after to ensure process termination
+    threading.Thread(target=lambda: (time.sleep(0.15), os._exit(0)), daemon=True).start()
+
+    if func:
+        try:
+            func()
+        except Exception:
+            pass
+
+    return "shutting down", 200
 
 
 if __name__ == "__main__":

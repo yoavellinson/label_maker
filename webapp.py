@@ -42,6 +42,8 @@ FIELD_LABELS = {
     "specialty_pill_5": "כפתור ספיישלטי 5",
     "specialty_pill_6": "כפתור ספיישלטי 6",
     "description": "תיאור",
+    "grid_background": "רקע מדבקה",
+    "weight": "משקל פולים",
 }
 
 FIELD_TIPS = {
@@ -72,6 +74,8 @@ FIELD_TIPS = {
     "roast_date": "תאריך בפורמט dd/mm/yyyy. אפשר להשאיר ריק כדי למלא ידנית אחרי ההדפסה.",
     "accent_color": "צבע מוביל לתווית: פס עליון, מסגרות והדגשות.",
     "texture_file": "תמונה שתמלא את החלק העליון. התמונות נדחסות לפני שמירה.",
+    "grid_background": "בחר אחת משלוש המדבקות המודפסות מראש.",
+    "weight": "משקל הפולים בק״ג, למשל 1 או 0.5.",
 }
 
 def app_base_dir() -> Path:
@@ -127,6 +131,8 @@ BLEND_FIELDNAMES = [
     "roast_date",
     "accent_color",
     "texture_path",
+    "grid_background",
+    "weight",
 ]
 
 
@@ -141,6 +147,12 @@ TEMPLATE = """
     @font-face {
       font-family: "Heebo";
       src: url("font/heebo-regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+
+    @font-face {
+      font-family: "Karantina";
+      src: url("font/karantina-regular.ttf") format("truetype");
       font-weight: 400;
     }
 
@@ -174,7 +186,7 @@ TEMPLATE = """
 
     .app {
       display: grid;
-      grid-template-columns: minmax(360px, 1fr) minmax(360px, 440px);
+      grid-template-columns: minmax(420px, 1fr) minmax(360px, 420px);
       gap: 24px;
       min-height: 100vh;
       padding: 24px;
@@ -234,8 +246,8 @@ TEMPLATE = """
     }
 
     #pdf-preview {
-      width: min(360px, 74vw, 44vh);
-      aspect-ratio: 1 / 2;
+      width: min(620px, 74vw, 72vh);
+      aspect-ratio: 1 / 1;
       height: auto;
       min-height: 0;
       border: 0;
@@ -480,7 +492,7 @@ TEMPLATE = """
       <div class="toolbar">
         <h1>עורך תווית קפה</h1>
         <div class="toolbar-actions">
-          <button class="download" type="submit" form="label-form" formaction="label.pdf">הורדת PDF</button>
+          <button class="download" type="submit" form="label-form" formaction="label.pdf?background=0">PDF להדפסה</button>
           <button class="download secondary" type="button" id="print-button">הדפסה</button>
         </div>
       </div>
@@ -529,6 +541,18 @@ TEMPLATE = """
           <label title="{{ tips['roast_date'] }}">
             תאריך קלייה
             <input name="roast_date" value="{{ label.roast_date }}" inputmode="numeric" pattern="\\d{2}/\\d{2}/\\d{4}" dir="ltr" title="{{ tips['roast_date'] }}">
+          </label>
+          <label title="{{ tips['weight'] }}">
+            משקל פולים
+            <input name="weight" value="{{ label.weight }}" dir="ltr" inputmode="decimal" title="{{ tips['weight'] }}">
+          </label>
+          <label title="{{ tips['grid_background'] }}">
+            רקע מדבקה
+            <select name="grid_background" title="{{ tips['grid_background'] }}">
+              <option value="classic" {% if label.grid_background == "classic" %}selected{% endif %}>קלאסי ירוק</option>
+              <option value="fruity" {% if label.grid_background == "fruity" %}selected{% endif %}>פירותי ורוד</option>
+              <option value="chocolate" {% if label.grid_background == "chocolate" %}selected{% endif %}>שוקולדי חום</option>
+            </select>
           </label>
         </fieldset>
 
@@ -629,7 +653,7 @@ TEMPLATE = """
     const specialtyOnly = form.querySelectorAll("[data-specialty-only]");
     const regularOnly = form.querySelectorAll("[data-regular-only]");
     const autoFields = form.querySelectorAll(
-      'input[name="badge_line_1"], input[name="badge_line_2"], input[name="roast_level"], input[name="specialty_coffee"], input[name="cup_score"], input[name="note_1"], input[name="note_2"], input[name="note_3"], input[name="specialty_variety"], input[name="specialty_process"], input[name="specialty_pill_1"], input[name="specialty_pill_2"], input[name="specialty_pill_3"], input[name="specialty_pill_4"], input[name="specialty_pill_5"], input[name="specialty_pill_6"], select[name="highlighted_note"], textarea[name="description"], input[name="bottom_mode"], input[name="roast_date"], input[name="accent_color"], input[name="texture_file"]'
+      'input[name="badge_line_1"], input[name="badge_line_2"], input[name="roast_level"], input[name="specialty_coffee"], input[name="cup_score"], input[name="note_1"], input[name="note_2"], input[name="note_3"], input[name="specialty_variety"], input[name="specialty_process"], input[name="specialty_pill_1"], input[name="specialty_pill_2"], input[name="specialty_pill_3"], input[name="specialty_pill_4"], input[name="specialty_pill_5"], input[name="specialty_pill_6"], select[name="highlighted_note"], textarea[name="description"], input[name="bottom_mode"], input[name="roast_date"], input[name="weight"], select[name="grid_background"], input[name="accent_color"], input[name="texture_file"]'
     );
 
     let previewTimer;
@@ -721,7 +745,7 @@ TEMPLATE = """
       const data = new FormData(form);
       data.set("action", "print");
 
-      const response = await fetch("label.pdf", {
+      const response = await fetch("label.pdf?background=0", {
         method: "POST",
         body: data
       });
@@ -987,6 +1011,8 @@ def save_blend_to_csv(blend_id: str, name: str, label_data: LabelData) -> str:
         "roast_date": label_data.roast_date,
         "accent_color": label_data.accent_color,
         "texture_path": texture_path,
+        "grid_background": label_data.grid_background,
+        "weight": label_data.weight,
     }
 
     replaced = False
@@ -1198,9 +1224,9 @@ def prepare_texture(texture_bytes: bytes) -> bytes | None:
         return None
 
 
-def render_pdf(data: LabelData) -> bytes:
+def render_pdf(data: LabelData, include_background=True) -> bytes:
     buffer = BytesIO()
-    create_label_pdf(buffer, data)
+    create_label_pdf(buffer, data, include_background=include_background)
     return buffer.getvalue()
 
 
@@ -1294,6 +1320,9 @@ def font(name):
     fonts = {
         "heebo-regular.ttf": BASE_DIR / "fonts/Heebo/static/Heebo-Regular.ttf",
         "heebo-bold.ttf": BASE_DIR / "fonts/Heebo/static/Heebo-Bold.ttf",
+        "karantina-light.ttf": BASE_DIR / "fonts/Karantina/static/Karantina-Light.ttf",
+        "karantina-regular.ttf": BASE_DIR / "fonts/Karantina/static/Karantina-Regular.ttf",
+        "karantina-bold.ttf": BASE_DIR / "fonts/Karantina/static/Karantina-Bold.ttf",
     }
 
     if name not in fonts:
@@ -1306,7 +1335,8 @@ def font(name):
 def preview_pdf():
     label_data = build_label_data(request.form, load_label_state())
     save_label_state(label_data)
-    pdf = render_pdf(label_data)
+    include_background = request.values.get("background", "1") != "0"
+    pdf = render_pdf(label_data, include_background=include_background)
     return jsonify(
         {
             "pdf_base64": b64encode(pdf).decode("ascii"),
@@ -1323,7 +1353,8 @@ def label_pdf():
     else:
         label_data = load_label_state() or default_label_data()
 
-    pdf = render_pdf(label_data)
+    include_background = request.values.get("background", "1") != "0"
+    pdf = render_pdf(label_data, include_background=include_background)
     return Response(
         pdf,
         mimetype="application/pdf",

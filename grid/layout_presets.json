@@ -1,0 +1,322 @@
+{
+  "layouts": [
+    {
+      "id": "f60b13f24a0643dcb234edf917adcd9f",
+      "name": "בדיקה",
+      "updated_at": "2026-08-27T19:02:26",
+      "layout": {
+        "purpose": "label_layout_preset",
+        "version": 1,
+        "name": "בדיקה",
+        "editor_state": {
+          "source": "grid/final_stickers.con_16.8.26 (1).pdf",
+          "page": 4,
+          "sticker": {
+            "w": 100,
+            "h": 100
+          },
+          "background": {
+            "x": -11.4,
+            "y": -11.6,
+            "scale": 1,
+            "pageW": 123.28348611111109,
+            "pageH": 123.28348611111109
+          },
+          "texts": [
+            {
+              "id": "cf7f5fc6-fc2c-477b-8fe5-014f2ed83b67",
+              "color": "#111111",
+              "role": "origin",
+              "name": "מדינה / בלנד",
+              "text": "קולומביה",
+              "x": 54.746651785714285,
+              "y": 80.35305059523809,
+              "size": 18,
+              "weight": "400",
+              "align": "left"
+            },
+            {
+              "id": "2e198f3c-5f81-4777-bf39-30895eca620a",
+              "color": "#111111",
+              "role": "title",
+              "name": "שם מרכזי",
+              "text": "שם הקפה",
+              "x": 11.43563988095238,
+              "y": 78.05524553571428,
+              "size": 28,
+              "weight": "300",
+              "align": "center"
+            },
+            {
+              "id": "23479f7f-b6aa-44df-b60d-ca248dd47cc3",
+              "color": "#111111",
+              "role": "tastes",
+              "name": "טעמים",
+              "text": "פירות יער | שוקולד | הדרים",
+              "x": 50,
+              "y": 37,
+              "size": 13,
+              "weight": "400",
+              "align": "center"
+            },
+            {
+              "id": "eafa23ed-d7a3-4a13-8e22-9191e79c782d",
+              "color": "#111111",
+              "role": "roast_level",
+              "name": "קלייה",
+              "text": "קלייה בינונית כהה",
+              "x": 28,
+              "y": 39,
+              "size": 13,
+              "weight": "400",
+              "align": "center"
+            },
+            {
+              "id": "06e051f5-2b6a-4a75-96a8-4b8ba0b0c6fa",
+              "color": "#111111",
+              "role": "process_label",
+              "name": "עיבוד",
+              "text": "עיבוד:",
+              "x": 62,
+              "y": 44,
+              "size": 13,
+              "weight": "400",
+              "align": "center"
+            },
+            {
+              "id": "94636866-7ef1-44b2-ab38-93d3bdfece5b",
+              "color": "#111111",
+              "role": "kosher",
+              "name": "כשרות",
+              "text": "כשר בהשגחת הרבנות חתם סופר",
+              "x": 28,
+              "y": 44,
+              "size": 12.5,
+              "weight": "300",
+              "align": "center"
+            },
+            {
+              "id": "c722b0cd-0126-464f-8fd4-727d83001265",
+              "color": "#111111",
+              "role": "weight_value",
+              "name": "משקל",
+              "text": "1",
+              "x": 86,
+              "y": 28,
+              "size": 28,
+              "weight": "300",
+              "align": "center"
+            },
+            {
+              "id": "a88176c1-3d14-4688-89c8-5523da8e0406",
+              "color": "#111111",
+              "role": "weight_unit",
+              "name": "ק״ג",
+              "text": "ק״ג",
+              "x": 78,
+              "y": 28,
+              "size": 28,
+              "weight": "300",
+              "align": "center"
+            },
+            {
+              "id": "b31fdacf-90b3-41a7-9b8e-cccfffce4eb8",
+              "color": "#111111",
+              "role": "roast_date",
+              "name": "תאריך",
+              "text": "27/08/2026",
+              "x": 85,
+              "y": 42,
+              "size": 13,
+              "weight": "400",
+              "align": "center"
+            }
+          ]
+        },
+        "parameters": {
+          "purpose": "label_layout_parameters",
+          "units": {
+            "editor_positions": "millimeters from top-left",
+            "reportlab_positions": "points from bottom-left",
+            "font_sizes": "points"
+          },
+          "source": {
+            "file": "grid/final_stickers.con_16.8.26 (1).pdf",
+            "page": 4
+          },
+          "sticker": {
+            "width_mm": 100,
+            "height_mm": 100,
+            "width_pt": 283.46,
+            "height_pt": 283.46
+          },
+          "background_crop": {
+            "x_mm": -11.4,
+            "y_mm_from_top": -11.6,
+            "x_pt": -32.31,
+            "y_pt_from_bottom": -33.12,
+            "scale": 1,
+            "source_width_mm": 123.3,
+            "source_height_mm": 123.3,
+            "rendered_width_mm": 123.3,
+            "rendered_height_mm": 123.3
+          },
+          "text_fields": [
+            {
+              "id": "cf7f5fc6-fc2c-477b-8fe5-014f2ed83b67",
+              "role": "origin",
+              "name": "מדינה / בלנד",
+              "text": "קולומביה",
+              "x_mm": 54.7,
+              "y_mm_from_top": 80.4,
+              "x_pt": 155.19,
+              "y_pt_from_bottom": 55.69,
+              "font_family": "Karantina",
+              "font_weight": "400",
+              "font_size_pt": 18,
+              "align": "left",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "2e198f3c-5f81-4777-bf39-30895eca620a",
+              "role": "title",
+              "name": "שם מרכזי",
+              "text": "שם הקפה",
+              "x_mm": 11.4,
+              "y_mm_from_top": 78.1,
+              "x_pt": 32.42,
+              "y_pt_from_bottom": 62.21,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 28,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "23479f7f-b6aa-44df-b60d-ca248dd47cc3",
+              "role": "tastes",
+              "name": "טעמים",
+              "text": "פירות יער | שוקולד | הדרים",
+              "x_mm": 50,
+              "y_mm_from_top": 37,
+              "x_pt": 141.73,
+              "y_pt_from_bottom": 178.58,
+              "font_family": "Karantina",
+              "font_weight": "400",
+              "font_size_pt": 13,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "eafa23ed-d7a3-4a13-8e22-9191e79c782d",
+              "role": "roast_level",
+              "name": "קלייה",
+              "text": "קלייה בינונית כהה",
+              "x_mm": 28,
+              "y_mm_from_top": 39,
+              "x_pt": 79.37,
+              "y_pt_from_bottom": 172.91,
+              "font_family": "Karantina",
+              "font_weight": "400",
+              "font_size_pt": 13,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "06e051f5-2b6a-4a75-96a8-4b8ba0b0c6fa",
+              "role": "process_label",
+              "name": "עיבוד",
+              "text": "עיבוד:",
+              "x_mm": 62,
+              "y_mm_from_top": 44,
+              "x_pt": 175.75,
+              "y_pt_from_bottom": 158.74,
+              "font_family": "Karantina",
+              "font_weight": "400",
+              "font_size_pt": 13,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "94636866-7ef1-44b2-ab38-93d3bdfece5b",
+              "role": "kosher",
+              "name": "כשרות",
+              "text": "כשר בהשגחת הרבנות חתם סופר",
+              "x_mm": 28,
+              "y_mm_from_top": 44,
+              "x_pt": 79.37,
+              "y_pt_from_bottom": 158.74,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 12.5,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "c722b0cd-0126-464f-8fd4-727d83001265",
+              "role": "weight_value",
+              "name": "משקל",
+              "text": "1",
+              "x_mm": 86,
+              "y_mm_from_top": 28,
+              "x_pt": 243.78,
+              "y_pt_from_bottom": 204.09,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 28,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "a88176c1-3d14-4688-89c8-5523da8e0406",
+              "role": "weight_unit",
+              "name": "ק״ג",
+              "text": "ק״ג",
+              "x_mm": 78,
+              "y_mm_from_top": 28,
+              "x_pt": 221.1,
+              "y_pt_from_bottom": 204.09,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 28,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "b31fdacf-90b3-41a7-9b8e-cccfffce4eb8",
+              "role": "roast_date",
+              "name": "תאריך",
+              "text": "27/08/2026",
+              "x_mm": 85,
+              "y_mm_from_top": 42,
+              "x_pt": 240.94,
+              "y_pt_from_bottom": 164.41,
+              "font_family": "Karantina",
+              "font_weight": "400",
+              "font_size_pt": 13,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            }
+          ],
+          "reportlab_hint": {
+            "canvas_size": [
+              283.46,
+              283.46
+            ],
+            "draw_background": "drawImage(background, x_pt, y_pt_from_bottom, width=rendered_width_mm*mm, height=rendered_height_mm*mm) and clip/crop to sticker bounds",
+            "draw_text": "draw text at x_pt, y_pt_from_bottom using align and font_size_pt"
+          }
+        }
+      }
+    }
+  ]
+}

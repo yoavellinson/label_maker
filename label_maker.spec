@@ -12,7 +12,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ("fonts", "fonts"),
-        ("grid/backgrounds", "grid/backgrounds"),
+        ("grid", "grid"),
         ("blends.csv", "."),
         ("textures", "textures"),
     ],

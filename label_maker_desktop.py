@@ -6,11 +6,11 @@ import threading
 import time
 import webbrowser
 
-from webapp import app, app_data_dir, ensure_runtime_data
+from layout_dev_app import app, app_data_dir, ensure_runtime_data
 
 
 HOST = "127.0.0.1"
-PORT = int(os.environ.get("LABEL_MAKER_PORT", "5001"))
+PORT = int(os.environ.get("LABEL_MAKER_PORT", "5002"))
 LOCK_PATH = app_data_dir() / "label_maker.lock"
 LOCK_HANDLE = None
 

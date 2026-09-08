@@ -192,16 +192,6 @@ def layout_summary(layout: dict) -> dict:
     }
 
 
-def available_sources() -> list[dict[str, str]]:
-    ensure_runtime_data()
-    sources = []
-    for path in sorted(GRID_DIR.glob("*.pdf")):
-        sources.append({"kind": "pdf", "name": path.name, "path": logical_source_path(path)})
-    for path in sorted((GRID_DIR / "backgrounds").glob("*.png")):
-        sources.append({"kind": "image", "name": path.stem, "path": logical_source_path(path)})
-    return sources
-
-
 def run_command(args: list[str]) -> str:
     result = subprocess.run(args, check=True, capture_output=True, text=True)
     return result.stdout
@@ -259,7 +249,8 @@ def image_response(path: Path, width_mm: float | None = None, height_mm: float |
 
 @app.get("/")
 def index():
-    return render_template_string(TEMPLATE, sources=available_sources())
+    ensure_runtime_data()
+    return render_template_string(TEMPLATE)
 
 
 @app.get("/font/<name>")
@@ -949,32 +940,6 @@ TEMPLATE = """
       </section>
 
       <section class="section dev-section">
-        <p class="section-title">רקע</p>
-        <label>
-          קובץ קיים
-          <select id="source">
-            {% for source in sources %}
-              <option value="{{ source.path }}">{{ source.name }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <div class="grid" style="margin-top:10px">
-          <label>
-            עמוד PDF
-            <input id="page" type="number" min="1" step="1" value="1">
-          </label>
-          <label>
-            העלאת PDF
-            <input id="pdfUpload" type="file" accept="application/pdf">
-          </label>
-        </div>
-        <div class="buttons">
-          <button id="loadSource">טעינת רקע</button>
-          <button class="secondary" id="loadSaved">טעינת שמירה</button>
-        </div>
-      </section>
-
-      <section class="section dev-section">
         <p class="section-title">גודל מדבקה ותצוגה</p>
         <div class="grid">
           <label>
@@ -1145,9 +1110,6 @@ TEMPLATE = """
     };
 
     const controls = {
-      source: document.querySelector("#source"),
-      page: document.querySelector("#page"),
-      pdfUpload: document.querySelector("#pdfUpload"),
       stickerW: document.querySelector("#stickerW"),
       stickerH: document.querySelector("#stickerH"),
       viewScale: document.querySelector("#viewScale"),
@@ -1291,6 +1253,11 @@ TEMPLATE = """
       }
     }
 
+    function pageFromStickerSource(source) {
+      const match = String(source || "").match(/sticker-(\\d+)-/);
+      return match ? Number(match[1]) : null;
+    }
+
     function activeItem() {
       return state.texts.find((item) => item.id === state.selectedId) || null;
     }
@@ -1399,8 +1366,16 @@ TEMPLATE = """
     }
 
     function applyInputsToState() {
-      state.source = controls.source.value;
-      state.page = Math.max(1, Math.round(numberValue(controls.page, 1)));
+      let source = state.source || stickerPdfSource;
+      let page = Math.max(1, Math.round(Number(state.page || state.originalPdfPage || 6)));
+      const stickerPage = pageFromStickerSource(source);
+      if (stickerPage) {
+        source = stickerPdfSource;
+        page = stickerPage;
+      }
+      state.source = source;
+      state.page = page;
+      state.originalPdfPage = stickerChoices[page] ? page : state.originalPdfPage;
       state.sticker.w = numberValue(controls.stickerW, 100);
       state.sticker.h = numberValue(controls.stickerH, 50);
       state.printRotation = numberValue(controls.printRotation, 0);
@@ -1418,8 +1393,7 @@ TEMPLATE = """
       controls.bgScale.value = state.background.scale;
       controls.bgX.value = round1(state.background.x);
       controls.bgY.value = round1(state.background.y);
-      controls.page.value = state.page;
-      if (state.source) controls.source.value = state.source;
+      state.source = state.source || stickerPdfSource;
       markActiveSticker();
     }
 
@@ -1690,9 +1664,6 @@ TEMPLATE = """
       const form = new FormData();
       form.append("source", state.source);
       form.append("page", String(state.page));
-      if (controls.pdfUpload.files[0]) {
-        form.append("pdf", controls.pdfUpload.files[0]);
-      }
       const response = await fetch("/render-source", {method: "POST", body: form});
       const payload = await response.json();
       if (!response.ok) {
@@ -1712,8 +1683,6 @@ TEMPLATE = """
       state.source = stickerPdfSource;
       state.page = pageNumber;
       state.originalPdfPage = pageNumber;
-      controls.source.value = state.source;
-      controls.page.value = state.page;
       controls.layoutName.value = choice?.label || `מדבקה עמוד ${pageNumber}`;
       clearActiveLayout();
       saveCurrentState();
@@ -1947,7 +1916,7 @@ TEMPLATE = """
     }
 
     function sourceForOriginalPage(page, fallbackSource) {
-      const pageNumber = Number(page);
+      const pageNumber = Number(page) || pageFromStickerSource(fallbackSource);
       return stickerChoices[pageNumber] ? stickerPdfSource : fallbackSource || "";
     }
 
@@ -1955,7 +1924,7 @@ TEMPLATE = """
       const normalized = normalizeLayout(layout);
       if (!normalized) return false;
       const image = options.keepImage ? state.background.image : "";
-      const originalPdfPage = normalized.originalPdfPage || normalized.original_pdf_page || normalized.originalPdf?.page || normalized.source?.original_pdf_page || normalized.page || 1;
+      const originalPdfPage = normalized.originalPdfPage || normalized.original_pdf_page || normalized.originalPdf?.page || normalized.source?.original_pdf_page || pageFromStickerSource(normalized.source) || normalized.page || 6;
       const source = sourceForOriginalPage(originalPdfPage, normalized.source);
       state = {
         ...state,
@@ -2007,17 +1976,6 @@ TEMPLATE = """
       syncContentFromTexts();
       render();
       return true;
-    }
-
-    async function loadSaved() {
-      const response = await fetch("/load-layout");
-      const payload = await response.json();
-      if (!payload.layout) {
-        statusEl.textContent = "אין עדיין שמירה.";
-        return;
-      }
-      applyLayout(payload.layout, {keepImage: true});
-      statusEl.textContent = "השמירה נטענה. לחץ טעינת רקע אם צריך לרענן את התמונה.";
     }
 
     async function refreshLayoutList() {
@@ -2227,7 +2185,7 @@ TEMPLATE = """
       input.addEventListener("input", applyContent);
     }
 
-    for (const input of [controls.source, controls.page, controls.layoutName]) {
+    for (const input of [controls.layoutName]) {
       input.addEventListener("input", saveCurrentState);
       input.addEventListener("change", saveCurrentState);
     }
@@ -2239,7 +2197,6 @@ TEMPLATE = """
       }
     });
 
-    document.querySelector("#loadSource").addEventListener("click", loadSource);
     document.querySelector("#applyContent").addEventListener("click", applyContent);
     document.querySelector("#newLabel").addEventListener("click", resetDailyContent);
     document.querySelector("#todayDate").addEventListener("click", () => {
@@ -2256,7 +2213,6 @@ TEMPLATE = """
       button.addEventListener("click", () => chooseSticker(button.dataset.stickerPage));
     }
     document.querySelector("#saveLayout").addEventListener("click", saveLayout);
-    document.querySelector("#loadSaved").addEventListener("click", loadSaved);
     document.querySelector("#saveNamedLayout").addEventListener("click", saveNamedLayout);
     document.querySelector("#saveAsNamedLayout").addEventListener("click", saveAsNamedLayout);
     document.querySelector("#resetNamedLayout").addEventListener("click", resetNamedLayout);
@@ -2337,8 +2293,7 @@ TEMPLATE = """
       state.source = stickerPdfSource;
       state.page = 6;
       state.originalPdfPage = 6;
-      controls.source.value = state.source;
-      controls.page.value = state.page;
+      syncInputsFromState();
       controls.contentDate.value = todayText();
       addText("origin");
       addText("title");

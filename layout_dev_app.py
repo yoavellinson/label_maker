@@ -20,6 +20,11 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
+try:
+    import pypdfium2 as pdfium
+except ImportError:
+    pdfium = None
+
 
 def app_base_dir() -> Path:
     if getattr(sys, "frozen", False):
@@ -214,6 +219,32 @@ def pdf_page_size_mm(pdf_path: Path, page: int) -> tuple[float, float]:
     return width_pt / POINTS_PER_MM, height_pt / POINTS_PER_MM
 
 
+def pdfium_page_image(pdf_path: Path, page: int) -> dict[str, str | float]:
+    if pdfium is None:
+        raise RuntimeError("Python PDF renderer is not installed.")
+    document = pdfium.PdfDocument(str(pdf_path))
+    try:
+        if page < 1 or page > len(document):
+            raise RuntimeError(f"PDF page {page} is outside the document page range.")
+        pdf_page = document[page - 1]
+        width_pt, height_pt = pdf_page.get_size()
+        try:
+            bitmap = pdf_page.render(scale=RENDER_DPI / 72)
+            image = bitmap.to_pil()
+            buffer = BytesIO()
+            image.save(buffer, format="PNG")
+            encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+            return {
+                "image": f"data:image/png;base64,{encoded}",
+                "page_width_mm": width_pt / POINTS_PER_MM,
+                "page_height_mm": height_pt / POINTS_PER_MM,
+            }
+        finally:
+            pdf_page.close()
+    finally:
+        document.close()
+
+
 def image_response(path: Path, width_mm: float | None = None, height_mm: float | None = None):
     data = path.read_bytes()
     encoded = base64.b64encode(data).decode("ascii")
@@ -266,6 +297,8 @@ def render_source():
 
     out_prefix = Path(tempfile.gettempdir()) / f"label-layout-render-{uuid.uuid4().hex}"
     try:
+        if pdfium is not None:
+            return jsonify(pdfium_page_image(pdf_path, page))
         width_mm, height_mm = pdf_page_size_mm(pdf_path, page)
         run_command([
             "pdftoppm",
@@ -281,8 +314,8 @@ def render_source():
             str(out_prefix),
         ])
         return jsonify(image_response(out_prefix.with_suffix(".png"), width_mm, height_mm))
-    except (subprocess.CalledProcessError, RuntimeError) as exc:
-        return jsonify({"error": str(exc)}), 500
+    except (subprocess.CalledProcessError, FileNotFoundError, RuntimeError) as exc:
+        return jsonify({"error": f"PDF render failed: {exc}"}), 500
     finally:
         rendered = out_prefix.with_suffix(".png")
         if rendered.exists():

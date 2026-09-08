@@ -19,6 +19,8 @@ a = Analysis(
     hiddenimports=[
         "bidi.algorithm",
         "PIL._tkinter_finder",
+        "pypdfium2",
+        "pypdfium2_raw",
     ],
     hookspath=[],
     hooksconfig={},

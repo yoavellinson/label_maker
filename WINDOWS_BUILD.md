@@ -15,13 +15,13 @@ build_windows.bat
 The app folder will be created at:
 
 ```text
-dist\LabelMaker
+dist\LabelMaker_v2
 ```
 
 Run:
 
 ```text
-dist\LabelMaker\LabelMaker_v2.exe
+dist\LabelMaker_v2\LabelMaker_v2.exe
 ```
 
 ## Build With GitHub Actions
@@ -31,8 +31,8 @@ Push to the `grid` branch, or run the `Windows Build` workflow manually from Git
 The workflow uploads two artifacts:
 
 ```text
-LabelMaker-windows-folder
-LabelMaker-windows-installer
+LabelMaker-v2-windows-folder
+LabelMaker-v2-windows-installer
 ```
 
 ## Build An Installer
@@ -48,7 +48,7 @@ Compile it after running `build_windows.bat`.
 The installer will be created at:
 
 ```text
-dist\installer\LabelMakerSetup.exe
+dist\installer\LabelMaker_v2_Setup.exe
 ```
 
 ## Editable Data
@@ -56,7 +56,7 @@ dist\installer\LabelMakerSetup.exe
 In the installed Windows app, editable files live in:
 
 ```text
-%LOCALAPPDATA%\LabelMaker
+%LOCALAPPDATA%\LabelMaker_v2
 ```
 
 Files:
@@ -83,13 +83,13 @@ grid\layout_dev_config.json
 Saved sticker layouts are editable after install at:
 
 ```text
-%LOCALAPPDATA%\LabelMaker\grid\layout_presets.json
+%LOCALAPPDATA%\LabelMaker_v2\grid\layout_presets.json
 ```
 
 For a portable build, you can override the data folder:
 
 ```bat
-set LABEL_MAKER_DATA_DIR=%cd%
+set LABEL_MAKER_V2_DATA_DIR=%cd%
 LabelMaker_v2.exe
 ```
 

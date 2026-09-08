@@ -1,10 +1,10 @@
-#define MyAppName "Label Maker"
+#define MyAppName "Label Maker v2"
 #define MyAppVersion "1.1.0"
 #define MyAppPublisher "Label Maker"
 #define MyAppExeName "LabelMaker_v2.exe"
 
 [Setup]
-AppId={{B6D57D8D-48C9-4F43-B9D6-98601FB9C945}
+AppId={{7D03F91F-A778-4F40-973F-EA8028098128}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -12,7 +12,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist\installer
-OutputBaseFilename=LabelMakerSetup
+OutputBaseFilename=LabelMaker_v2_Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -24,7 +24,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
 
 [Files]
-Source: "..\dist\LabelMaker\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\LabelMaker_v2\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

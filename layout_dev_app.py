@@ -33,10 +33,12 @@ def app_base_dir() -> Path:
 
 
 def app_data_dir() -> Path:
+    if "LABEL_MAKER_V2_DATA_DIR" in os.environ:
+        return Path(os.environ["LABEL_MAKER_V2_DATA_DIR"]).expanduser()
     if "LABEL_MAKER_DATA_DIR" in os.environ:
         return Path(os.environ["LABEL_MAKER_DATA_DIR"]).expanduser()
     if getattr(sys, "frozen", False) and os.name == "nt":
-        return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "LabelMaker"
+        return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "LabelMaker_v2"
     return app_base_dir()
 
 
@@ -2036,6 +2038,7 @@ TEMPLATE = """
       if (selected) {
         controls.savedLayouts.value = selected;
       }
+      updateSaveStatus();
     }
 
     async function postLayoutSave({forceNew = false, id = ""} = {}) {
@@ -2112,6 +2115,22 @@ TEMPLATE = """
       markLayoutClean(payload.layout.id, payload.layout.name);
       await loadSource();
       statusEl.textContent = `נטענה פריסה: ${payload.layout.name}`;
+    }
+
+    async function loadLayoutById(id) {
+      if (!id) return false;
+      controls.savedLayouts.value = id;
+      const response = await fetch(`/layouts/${encodeURIComponent(id)}`);
+      const payload = await response.json();
+      if (!response.ok) {
+        return false;
+      }
+      controls.layoutName.value = payload.layout.name;
+      applyLayout(payload.layout.layout, {keepImage: false});
+      markLayoutClean(payload.layout.id, payload.layout.name);
+      await loadSource();
+      statusEl.textContent = `נטענה פריסה: ${payload.layout.name}`;
+      return true;
     }
 
     async function resetNamedLayout() {
@@ -2281,26 +2300,45 @@ TEMPLATE = """
       button.addEventListener("click", () => addText(button.dataset.add));
     }
 
-    const savedState = loadCurrentState();
-    if (savedState) {
-      activeLayoutId = savedState.activeLayoutId || "";
-      activeLayoutName = savedState.activeLayoutName || "";
-      savedDatabaseSnapshot = savedState.savedDatabaseSnapshot || "";
-      applyLayout(savedState, {keepImage: false});
-      state.viewScale = savedState.viewScale || state.viewScale;
-      state.selectedId = savedState.selectedId || state.selectedId;
-      state.mode = savedState.mode || "text";
-      applyPersistedContent(savedState.content);
-      if (!savedState.content?.weight) {
-        controls.contentWeight.value = "1";
+    async function initializeApp() {
+      const savedState = loadCurrentState();
+      await refreshLayoutList();
+      if (savedState?.activeLayoutId && await loadLayoutById(savedState.activeLayoutId)) {
+        state.viewScale = savedState.viewScale || state.viewScale;
+        state.selectedId = savedState.selectedId || state.selectedId;
+        state.mode = savedState.mode || "text";
+        applyPersistedContent(savedState.content);
+        if (!savedState.content?.weight) {
+          controls.contentWeight.value = "1";
+        }
+        applyContent();
+        syncInputsFromState();
+        setCompact(savedState.compact !== false);
+        return;
       }
-      syncInputsFromState();
-      applyContent();
-      setCompact(savedState.compact !== false);
-    } else {
-      if (controls.source.options.length) {
-        state.source = controls.source.value;
+      if (savedState) {
+        activeLayoutId = savedState.activeLayoutId || "";
+        activeLayoutName = savedState.activeLayoutName || "";
+        savedDatabaseSnapshot = savedState.savedDatabaseSnapshot || "";
+        applyLayout(savedState, {keepImage: false});
+        state.viewScale = savedState.viewScale || state.viewScale;
+        state.selectedId = savedState.selectedId || state.selectedId;
+        state.mode = savedState.mode || "text";
+        applyPersistedContent(savedState.content);
+        if (!savedState.content?.weight) {
+          controls.contentWeight.value = "1";
+        }
+        syncInputsFromState();
+        applyContent();
+        setCompact(savedState.compact !== false);
+        await loadSource();
+        return;
       }
+      state.source = stickerPdfSource;
+      state.page = 6;
+      state.originalPdfPage = 6;
+      controls.source.value = state.source;
+      controls.page.value = state.page;
       controls.contentDate.value = todayText();
       addText("origin");
       addText("title");
@@ -2313,11 +2351,11 @@ TEMPLATE = """
       addText("date");
       syncContentFromTexts();
       applyContent();
-      render();
       setCompact(true);
+      await loadSource();
     }
-    refreshLayoutList();
-    loadSource();
+
+    initializeApp();
   </script>
 </body>
 </html>

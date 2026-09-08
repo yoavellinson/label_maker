@@ -44,11 +44,11 @@ jobs:
       - name: Upload standalone app
         uses: actions/upload-artifact@v4
         with:
-          name: LabelMaker-windows-folder
-          path: dist\LabelMaker
+          name: LabelMaker-v2-windows-folder
+          path: dist\LabelMaker_v2
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: LabelMaker-windows-installer
-          path: dist\installer\LabelMakerSetup.exe
+          name: LabelMaker-v2-windows-installer
+          path: dist\installer\LabelMaker_v2_Setup.exe

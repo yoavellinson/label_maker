@@ -10,8 +10,8 @@ from layout_dev_app import app, app_data_dir, ensure_runtime_data
 
 
 HOST = "127.0.0.1"
-PORT = int(os.environ.get("LABEL_MAKER_PORT", "5002"))
-LOCK_PATH = app_data_dir() / "label_maker.lock"
+PORT = int(os.environ.get("LABEL_MAKER_V2_PORT", os.environ.get("LABEL_MAKER_PORT", "5002")))
+LOCK_PATH = app_data_dir() / "label_maker_v2.lock"
 LOCK_HANDLE = None
 
 

@@ -55,5 +55,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="LabelMaker",
+    name="LabelMaker_v2",
 )

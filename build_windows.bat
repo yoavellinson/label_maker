@@ -25,9 +25,9 @@ python -m PyInstaller --clean --noconfirm label_maker.spec
 
 echo.
 echo Built app folder:
-echo %cd%\dist\LabelMaker
+echo %cd%\dist\LabelMaker_v2
 echo.
 echo Run:
-echo %cd%\dist\LabelMaker\LabelMaker_v2.exe
+echo %cd%\dist\LabelMaker_v2\LabelMaker_v2.exe
 
 endlocal

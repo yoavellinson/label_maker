@@ -1683,12 +1683,16 @@ TEMPLATE = """
       state.source = stickerPdfSource;
       state.page = pageNumber;
       state.originalPdfPage = pageNumber;
-      controls.layoutName.value = choice?.label || `מדבקה עמוד ${pageNumber}`;
-      clearActiveLayout();
+      if (!activeLayoutId) {
+        controls.layoutName.value = choice?.label || `מדבקה עמוד ${pageNumber}`;
+      }
       saveCurrentState();
       markActiveSticker();
       await loadSource();
-      statusEl.textContent = `נבחרה מדבקת ${choice?.label || pageNumber}.`;
+      updateSaveStatus();
+      statusEl.textContent = activeLayoutId
+        ? `הרקע הוחלף ל${choice?.label || pageNumber}. לחץ עדכון הפריסה השמורה כדי לשמור.`
+        : `נבחרה מדבקת ${choice?.label || pageNumber}.`;
     }
 
     function editorState() {

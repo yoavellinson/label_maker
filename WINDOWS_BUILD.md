@@ -21,7 +21,7 @@ dist\LabelMaker
 Run:
 
 ```text
-dist\LabelMaker\LabelMaker.exe
+dist\LabelMaker\LabelMaker_v2.exe
 ```
 
 ## Build With GitHub Actions
@@ -90,7 +90,7 @@ For a portable build, you can override the data folder:
 
 ```bat
 set LABEL_MAKER_DATA_DIR=%cd%
-LabelMaker.exe
+LabelMaker_v2.exe
 ```
 
 ## Password
@@ -105,5 +105,5 @@ To change it when launching from a terminal:
 
 ```bat
 set LABEL_ADMIN_PASSWORD=my-password
-LabelMaker.exe
+LabelMaker_v2.exe
 ```

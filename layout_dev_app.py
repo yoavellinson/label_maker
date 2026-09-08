@@ -370,10 +370,15 @@ def text_only_pdf():
     layout_height = float(sticker.get("height_pt") or 283.46)
     width = float(print_size.get("width_pt") or layout_width)
     height = float(print_size.get("height_pt") or layout_height)
+    rotation = int(print_size.get("rotation") or 0)
     scale_x = width / layout_width if layout_width else 1
     scale_y = height / layout_height if layout_height else 1
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=(width, height))
+    if rotation:
+        c.translate(width / 2, height / 2)
+        c.rotate(rotation)
+        c.translate(-width / 2, -height / 2)
     for field in parameters.get("text_fields", []):
         draw_text_field(c, scaled_text_field(field, scale_x, scale_y))
     c.showPage()
@@ -896,6 +901,15 @@ TEMPLATE = """
             <input id="printH" type="number" min="10" step="0.5" value="97">
           </label>
           <label>
+            סיבוב הדפסה
+            <select id="printRotation">
+              <option value="0">ללא סיבוב</option>
+              <option value="90">90°</option>
+              <option value="-90" selected>-90°</option>
+              <option value="180">180°</option>
+            </select>
+          </label>
+          <label>
             עיבוד
             <input id="contentProcess" type="text">
           </label>
@@ -1105,12 +1119,12 @@ TEMPLATE = """
     const stateStorageVersion = 2;
     const stickerPdfSource = "grid/final_stickers.con_16.8.26 (1).pdf";
     const stickerChoices = {
-      4: {label: "שוקולדי", image: "grid/backgrounds/sticker-04-chocolate.png"},
-      5: {label: "פירותי", image: "grid/backgrounds/sticker-05-fruity.png"},
-      6: {label: "פורטה", image: "grid/backgrounds/sticker-06-forte.png"},
-      10: {label: "ספיישלטי שוקולדי", image: "grid/backgrounds/sticker-10-specialty-chocolate.png"},
-      11: {label: "ספיישלטי פירותי", image: "grid/backgrounds/sticker-11-specialty-fruity.png"},
-      12: {label: "ספיישלטי פורטה", image: "grid/backgrounds/sticker-12-specialty-forte.png"},
+      4: {label: "שוקולדי"},
+      5: {label: "פירותי"},
+      6: {label: "פורטה"},
+      10: {label: "ספיישלטי שוקולדי"},
+      11: {label: "ספיישלטי פירותי"},
+      12: {label: "ספיישלטי פורטה"},
     };
 
     const controls = {
@@ -1130,6 +1144,7 @@ TEMPLATE = """
       contentDate: document.querySelector("#contentDate"),
       printW: document.querySelector("#printW"),
       printH: document.querySelector("#printH"),
+      printRotation: document.querySelector("#printRotation"),
       contentProcess: document.querySelector("#contentProcess"),
       contentKosher: document.querySelector("#contentKosher"),
       itemText: document.querySelector("#itemText"),
@@ -1185,6 +1200,7 @@ TEMPLATE = """
       originalPdfPage: 1,
       sticker: {w: 100, h: 50},
       printSize: {w: 97, h: 97},
+      printRotation: -90,
       weightVariants: {},
       viewScale: 4.2,
       background: {x: 0, y: 0, scale: 1, pageW: 100, pageH: 100, image: ""},
@@ -1282,6 +1298,7 @@ TEMPLATE = """
           roast: controls.contentRoast.value,
           weight: controls.contentWeight.value,
           date: controls.contentDate.value,
+          printRotation: controls.printRotation.value,
           process: controls.contentProcess.value,
           kosher: controls.contentKosher.value,
         },
@@ -1364,6 +1381,7 @@ TEMPLATE = """
       controls.contentRoast.value = content.roast ?? controls.contentRoast.value;
       controls.contentWeight.value = content.weight ?? controls.contentWeight.value;
       controls.contentDate.value = content.date ?? controls.contentDate.value;
+      controls.printRotation.value = content.printRotation ?? controls.printRotation.value;
       controls.contentProcess.value = content.process ?? controls.contentProcess.value;
       controls.contentKosher.value = content.kosher ?? controls.contentKosher.value;
       if (!controls.contentWeight.value.trim()) controls.contentWeight.value = "1";
@@ -1376,6 +1394,7 @@ TEMPLATE = """
       state.sticker.h = numberValue(controls.stickerH, 50);
       state.printSize.w = numberValue(controls.printW, 97);
       state.printSize.h = numberValue(controls.printH, 97);
+      state.printRotation = numberValue(controls.printRotation, -90);
       state.viewScale = numberValue(controls.viewScale, 4.2);
       state.background.scale = numberValue(controls.bgScale, 1);
       state.background.x = numberValue(controls.bgX, 0);
@@ -1387,6 +1406,7 @@ TEMPLATE = """
       controls.stickerH.value = state.sticker.h;
       controls.printW.value = state.printSize?.w || state.sticker.w;
       controls.printH.value = state.printSize?.h || state.sticker.h;
+      controls.printRotation.value = String(state.printRotation ?? -90);
       controls.viewScale.value = state.viewScale;
       controls.bgScale.value = state.background.scale;
       controls.bgX.value = round1(state.background.x);
@@ -1682,8 +1702,8 @@ TEMPLATE = """
     async function chooseSticker(page) {
       const pageNumber = Number(page);
       const choice = stickerChoices[pageNumber];
-      state.source = choice?.image || stickerPdfSource;
-      state.page = 1;
+      state.source = stickerPdfSource;
+      state.page = pageNumber;
       state.originalPdfPage = pageNumber;
       controls.source.value = state.source;
       controls.page.value = state.page;
@@ -1702,8 +1722,9 @@ TEMPLATE = """
         originalPdf: stickerPdfSource,
         originalPdfPage: state.originalPdfPage || state.page,
         sticker: {...state.sticker},
-        printSize: {...state.printSize},
-        weightVariants: {...state.weightVariants},
+      printSize: {...state.printSize},
+      printRotation: state.printRotation ?? -90,
+      weightVariants: {...state.weightVariants},
         background: {
           x: state.background.x,
           y: state.background.y,
@@ -1769,6 +1790,7 @@ TEMPLATE = """
           height_mm: round1(state.printSize.h),
           width_pt: round2(printWidthPt),
           height_pt: round2(printHeightPt),
+          rotation: state.printRotation ?? -90,
           note: "Used only for text-only PDF output. Preview/layout coordinates stay based on sticker size.",
         },
         weight_variants: {
@@ -1895,6 +1917,7 @@ TEMPLATE = """
             w: layout.print_size?.width_mm || 97,
             h: layout.print_size?.height_mm || 97,
           },
+          printRotation: layout.print_size?.rotation ?? -90,
           weightVariants: layout.weight_variants || {},
           background: {
             x: layout.background_crop?.x_mm || 0,
@@ -1930,7 +1953,7 @@ TEMPLATE = """
 
     function sourceForOriginalPage(page, fallbackSource) {
       const pageNumber = Number(page);
-      return stickerChoices[pageNumber]?.image || fallbackSource || "";
+      return stickerChoices[pageNumber] ? stickerPdfSource : fallbackSource || "";
     }
 
     function applyLayout(layout, options = {}) {
@@ -1942,7 +1965,7 @@ TEMPLATE = """
       state = {
         ...state,
         source,
-        page: source === normalized.source ? normalized.page || 1 : 1,
+        page: source === stickerPdfSource ? Number(originalPdfPage) : normalized.page || 1,
         originalPdfPage,
         sticker: {
           w: normalized.sticker?.w || normalized.sticker?.width_mm || 100,
@@ -1952,6 +1975,7 @@ TEMPLATE = """
           w: normalized.printSize?.w || normalized.printSize?.width_mm || normalized.print_size?.width_mm || 97,
           h: normalized.printSize?.h || normalized.printSize?.height_mm || normalized.print_size?.height_mm || 97,
         },
+        printRotation: normalized.printRotation ?? normalized.print_rotation ?? normalized.print_size?.rotation ?? -90,
         weightVariants: normalized.weightVariants || normalized.weight_variants || {},
         background: {
           ...state.background,
@@ -2182,8 +2206,9 @@ TEMPLATE = """
       if (state.mode === "text") selectItem(null);
     });
 
-    for (const input of [controls.stickerW, controls.stickerH, controls.printW, controls.printH, controls.viewScale, controls.bgScale, controls.bgX, controls.bgY]) {
+    for (const input of [controls.stickerW, controls.stickerH, controls.printW, controls.printH, controls.printRotation, controls.viewScale, controls.bgScale, controls.bgX, controls.bgY]) {
       input.addEventListener("input", render);
+      input.addEventListener("change", render);
     }
 
     for (const input of [controls.itemText, controls.itemX, controls.itemY, controls.itemSize, controls.itemLetterSpacing, controls.itemWeight, controls.itemAlign, controls.itemColor]) {

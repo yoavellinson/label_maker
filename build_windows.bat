@@ -17,6 +17,6 @@ echo Built app folder:
 echo %cd%\dist\LabelMaker
 echo.
 echo Run:
-echo %cd%\dist\LabelMaker\LabelMaker.exe
+echo %cd%\dist\LabelMaker\LabelMaker_v2.exe
 
 endlocal

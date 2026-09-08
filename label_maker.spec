@@ -34,7 +34,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="LabelMaker",
+    name="LabelMaker_v2",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

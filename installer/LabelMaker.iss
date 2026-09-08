@@ -1,7 +1,7 @@
 #define MyAppName "Label Maker"
 #define MyAppVersion "1.1.0"
 #define MyAppPublisher "Label Maker"
-#define MyAppExeName "LabelMaker.exe"
+#define MyAppExeName "LabelMaker_v2.exe"
 
 [Setup]
 AppId={{B6D57D8D-48C9-4F43-B9D6-98601FB9C945}

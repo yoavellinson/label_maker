@@ -26,6 +26,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt -r requirements-build.txt
 
+      - name: Verify bundled assets
+        run: |
+          if (!(Test-Path "grid\final_stickers.con_16.8.26 (1).pdf")) { throw "Missing grid\final_stickers.con_16.8.26 (1).pdf" }
+          if (!(Test-Path "grid\Master_stickers_guide.pdf")) { throw "Missing grid\Master_stickers_guide.pdf" }
+          if (!(Test-Path "grid\layout_presets.json")) { throw "Missing grid\layout_presets.json" }
+
       - name: Build standalone app
         run: python -m PyInstaller --clean --noconfirm label_maker.spec
 

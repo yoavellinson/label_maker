@@ -83,15 +83,19 @@ def draw_text_field(c: canvas.Canvas, field: dict) -> None:
         letter_spacing = size * float(kerning or 0) / 1000
     leading = size * 0.95
     lines = text.splitlines() or [text]
-    start_y = y_center + ((len(lines) - 1) * leading / 2)
+    start_center_y = y_center + ((len(lines) - 1) * leading / 2)
     font = font_name(field.get("font_weight"))
     align = field.get("align") or "center"
     rtl = field.get("rtl", True)
+    ascent = pdfmetrics.getAscent(font, size)
+    descent = pdfmetrics.getDescent(font, size)
+    baseline_offset = (ascent + descent) / 2
 
     c.setFillColor(HexColor(field.get("color") or "#111111"))
     for index, line in enumerate(lines):
         display = get_display(line) if rtl else line
-        y = start_y - index * leading
+        line_center_y = start_center_y - index * leading
+        y = line_center_y - baseline_offset
         text_width = pdfmetrics.stringWidth(display, font, size)
         if display:
             text_width += max(len(display) - 1, 0) * letter_spacing
@@ -108,16 +112,6 @@ def draw_text_field(c: canvas.Canvas, field: dict) -> None:
         text_obj.setCharSpace(letter_spacing)
         text_obj.textLine(display)
         c.drawText(text_obj)
-
-
-def scaled_text_field(field: dict, scale_x: float, scale_y: float) -> dict:
-    scaled = dict(field)
-    scaled["x_pt"] = float(field.get("x_pt") or 0) * scale_x
-    scaled["y_pt_from_bottom"] = float(field.get("y_pt_from_bottom") or 0) * scale_y
-    scaled["font_size_pt"] = float(field.get("font_size_pt") or 12) * min(scale_x, scale_y)
-    if "kerning" not in scaled:
-        scaled["letter_spacing_pt"] = float(field.get("letter_spacing_pt") or 0) * min(scale_x, scale_y)
-    return scaled
 
 
 def read_layout_db() -> dict:
@@ -263,6 +257,8 @@ def render_source():
     else:
         candidate = resolve_source_path(source)
         if not candidate:
+            if source == "grid/final_stickers.con_16.8.26 (1).pdf":
+                return jsonify({"error": "Background PDF is missing from the installed app data folder."}), 404
             return jsonify({"error": "Source file was not found."}), 404
         if candidate.suffix.lower() != ".pdf":
             return jsonify(image_response(candidate, None, None))
@@ -366,21 +362,15 @@ def text_only_pdf():
     parameters = payload.get("parameters", payload)
     sticker = parameters.get("sticker", {})
     print_size = parameters.get("print_size", {})
-    layout_width = float(sticker.get("width_pt") or 283.46)
-    layout_height = float(sticker.get("height_pt") or 283.46)
-    width = float(print_size.get("width_pt") or layout_width)
-    height = float(print_size.get("height_pt") or layout_height)
+    width = float(sticker.get("width_pt") or 283.46)
+    height = float(sticker.get("height_pt") or 283.46)
     rotation = int(print_size.get("rotation") or 0)
-    scale_x = width / layout_width if layout_width else 1
-    scale_y = height / layout_height if layout_height else 1
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=(width, height))
     if rotation:
-        c.translate(width / 2, height / 2)
-        c.rotate(rotation)
-        c.translate(-width / 2, -height / 2)
+        c.setPageRotation(rotation % 360)
     for field in parameters.get("text_fields", []):
-        draw_text_field(c, scaled_text_field(field, scale_x, scale_y))
+        draw_text_field(c, field)
     c.showPage()
     c.save()
     buffer.seek(0)
@@ -893,19 +883,11 @@ TEMPLATE = """
             <input id="contentDate" type="text">
           </label>
           <label>
-            רוחב הדפסה מ״מ
-            <input id="printW" type="number" min="10" step="0.5" value="97">
-          </label>
-          <label>
-            גובה הדפסה מ״מ
-            <input id="printH" type="number" min="10" step="0.5" value="97">
-          </label>
-          <label>
             סיבוב הדפסה
             <select id="printRotation">
-              <option value="0">ללא סיבוב</option>
+              <option value="0" selected>ללא סיבוב</option>
               <option value="90">90°</option>
-              <option value="-90" selected>-90°</option>
+              <option value="-90">-90°</option>
               <option value="180">180°</option>
             </select>
           </label>
@@ -1142,8 +1124,6 @@ TEMPLATE = """
       contentRoast: document.querySelector("#contentRoast"),
       contentWeight: document.querySelector("#contentWeight"),
       contentDate: document.querySelector("#contentDate"),
-      printW: document.querySelector("#printW"),
-      printH: document.querySelector("#printH"),
       printRotation: document.querySelector("#printRotation"),
       contentProcess: document.querySelector("#contentProcess"),
       contentKosher: document.querySelector("#contentKosher"),
@@ -1199,8 +1179,7 @@ TEMPLATE = """
       page: 1,
       originalPdfPage: 1,
       sticker: {w: 100, h: 50},
-      printSize: {w: 97, h: 97},
-      printRotation: -90,
+      printRotation: 0,
       weightVariants: {},
       viewScale: 4.2,
       background: {x: 0, y: 0, scale: 1, pageW: 100, pageH: 100, image: ""},
@@ -1365,9 +1344,6 @@ TEMPLATE = """
       try {
         const raw = localStorage.getItem(stateStorageKey);
         const parsed = raw ? JSON.parse(raw) : null;
-        if (parsed && parsed.storageVersion !== stateStorageVersion) {
-          parsed.printSize = {w: 97, h: 97};
-        }
         return parsed;
       } catch (error) {
         return null;
@@ -1392,9 +1368,7 @@ TEMPLATE = """
       state.page = Math.max(1, Math.round(numberValue(controls.page, 1)));
       state.sticker.w = numberValue(controls.stickerW, 100);
       state.sticker.h = numberValue(controls.stickerH, 50);
-      state.printSize.w = numberValue(controls.printW, 97);
-      state.printSize.h = numberValue(controls.printH, 97);
-      state.printRotation = numberValue(controls.printRotation, -90);
+      state.printRotation = numberValue(controls.printRotation, 0);
       state.viewScale = numberValue(controls.viewScale, 4.2);
       state.background.scale = numberValue(controls.bgScale, 1);
       state.background.x = numberValue(controls.bgX, 0);
@@ -1404,9 +1378,7 @@ TEMPLATE = """
     function syncInputsFromState() {
       controls.stickerW.value = state.sticker.w;
       controls.stickerH.value = state.sticker.h;
-      controls.printW.value = state.printSize?.w || state.sticker.w;
-      controls.printH.value = state.printSize?.h || state.sticker.h;
-      controls.printRotation.value = String(state.printRotation ?? -90);
+      controls.printRotation.value = String(state.printRotation ?? 0);
       controls.viewScale.value = state.viewScale;
       controls.bgScale.value = state.background.scale;
       controls.bgX.value = round1(state.background.x);
@@ -1722,8 +1694,7 @@ TEMPLATE = """
         originalPdf: stickerPdfSource,
         originalPdfPage: state.originalPdfPage || state.page,
         sticker: {...state.sticker},
-      printSize: {...state.printSize},
-      printRotation: state.printRotation ?? -90,
+        printRotation: state.printRotation ?? 0,
       weightVariants: {...state.weightVariants},
         background: {
           x: state.background.x,
@@ -1740,8 +1711,6 @@ TEMPLATE = """
       const mmToPt = 72 / 25.4;
       const stickerWidthPt = state.sticker.w * mmToPt;
       const stickerHeightPt = state.sticker.h * mmToPt;
-      const printWidthPt = state.printSize.w * mmToPt;
-      const printHeightPt = state.printSize.h * mmToPt;
       const textFields = state.texts.map((item) => {
         const xPt = item.x * mmToPt;
         const yFromTopPt = item.y * mmToPt;
@@ -1786,12 +1755,8 @@ TEMPLATE = """
           height_pt: round2(stickerHeightPt),
         },
         print_size: {
-          width_mm: round1(state.printSize.w),
-          height_mm: round1(state.printSize.h),
-          width_pt: round2(printWidthPt),
-          height_pt: round2(printHeightPt),
-          rotation: state.printRotation ?? -90,
-          note: "Used only for text-only PDF output. Preview/layout coordinates stay based on sticker size.",
+          rotation: state.printRotation ?? 0,
+          note: "Used only for text-only PDF page orientation. Print size and coordinates use the sticker size.",
         },
         weight_variants: {
           "0.5": state.weightVariants["0.5"] || null,
@@ -1812,9 +1777,8 @@ TEMPLATE = """
         text_fields: textFields,
         reportlab_hint: {
           canvas_size: [round2(stickerWidthPt), round2(stickerHeightPt)],
-          print_canvas_size: [round2(printWidthPt), round2(printHeightPt)],
           draw_background: "drawImage(background, x_pt, y_pt_from_bottom, width=rendered_width_mm*mm, height=rendered_height_mm*mm) and clip/crop to sticker bounds",
-          draw_text: "draw text at x_pt, y_pt_from_bottom using align, font_size_pt, and kerning; kerning is Illustrator-style tracking, where 30 means 30/1000 of font size",
+          draw_text: "draw text centered vertically at x_pt, y_pt_from_bottom using align, font_size_pt, and kerning; kerning is Illustrator-style tracking, where 30 means 30/1000 of font size",
         },
       };
     }
@@ -1913,11 +1877,7 @@ TEMPLATE = """
             w: layout.sticker?.width_mm || 100,
             h: layout.sticker?.height_mm || 100,
           },
-          printSize: {
-            w: layout.print_size?.width_mm || 97,
-            h: layout.print_size?.height_mm || 97,
-          },
-          printRotation: layout.print_size?.rotation ?? -90,
+          printRotation: layout.print_size?.rotation ?? 0,
           weightVariants: layout.weight_variants || {},
           background: {
             x: layout.background_crop?.x_mm || 0,
@@ -1971,11 +1931,7 @@ TEMPLATE = """
           w: normalized.sticker?.w || normalized.sticker?.width_mm || 100,
           h: normalized.sticker?.h || normalized.sticker?.height_mm || 100,
         },
-        printSize: {
-          w: normalized.printSize?.w || normalized.printSize?.width_mm || normalized.print_size?.width_mm || 97,
-          h: normalized.printSize?.h || normalized.printSize?.height_mm || normalized.print_size?.height_mm || 97,
-        },
-        printRotation: normalized.printRotation ?? normalized.print_rotation ?? normalized.print_size?.rotation ?? -90,
+        printRotation: normalized.printRotation ?? normalized.print_rotation ?? normalized.print_size?.rotation ?? 0,
         weightVariants: normalized.weightVariants || normalized.weight_variants || {},
         background: {
           ...state.background,
@@ -2206,7 +2162,7 @@ TEMPLATE = """
       if (state.mode === "text") selectItem(null);
     });
 
-    for (const input of [controls.stickerW, controls.stickerH, controls.printW, controls.printH, controls.printRotation, controls.viewScale, controls.bgScale, controls.bgX, controls.bgY]) {
+    for (const input of [controls.stickerW, controls.stickerH, controls.printRotation, controls.viewScale, controls.bgScale, controls.bgX, controls.bgY]) {
       input.addEventListener("input", render);
       input.addEventListener("change", render);
     }

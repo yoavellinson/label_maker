@@ -81,6 +81,7 @@ def draw_text_field(c: canvas.Canvas, field: dict) -> None:
         return
 
     x = float(field.get("x_pt") or 0)
+    box_width = float(field.get("width_pt") or 0)
     y_center = float(field.get("y_pt_from_bottom") or 0)
     size = float(field.get("font_size_pt") or 12)
     kerning = field.get("kerning")
@@ -108,11 +109,11 @@ def draw_text_field(c: canvas.Canvas, field: dict) -> None:
             text_width += max(len(display) - 1, 0) * letter_spacing
         draw_x = x
         if align == "right":
-            draw_x = x - text_width
+            draw_x = x + box_width - text_width if box_width else x - text_width
         elif align == "left":
             draw_x = x
         else:
-            draw_x = x - text_width / 2
+            draw_x = x + (box_width - text_width) / 2 if box_width else x - text_width / 2
 
         text_obj = c.beginText(draw_x, y)
         text_obj.setFont(font, size)
@@ -245,6 +246,73 @@ def pdfium_page_image(pdf_path: Path, page: int) -> dict[str, str | float]:
             pdf_page.close()
     finally:
         document.close()
+
+
+def render_pdf_page_to_png(pdf_path: Path, page: int, output_path: Path) -> None:
+    if pdfium is not None:
+        document = pdfium.PdfDocument(str(pdf_path))
+        try:
+            if page < 1 or page > len(document):
+                raise RuntimeError(f"PDF page {page} is outside the document page range.")
+            pdf_page = document[page - 1]
+            try:
+                bitmap = pdf_page.render(scale=RENDER_DPI / 72)
+                image = bitmap.to_pil()
+                image.save(output_path, format="PNG")
+                return
+            finally:
+                pdf_page.close()
+        finally:
+            document.close()
+
+    out_prefix = output_path.with_suffix("")
+    run_command([
+        "pdftoppm",
+        "-png",
+        "-singlefile",
+        "-f",
+        str(page),
+        "-l",
+        str(page),
+        "-r",
+        str(RENDER_DPI),
+        str(pdf_path),
+        str(out_prefix),
+    ])
+
+
+def draw_background(c: canvas.Canvas, parameters: dict, temp_paths: list[Path]) -> None:
+    source = parameters.get("source", {})
+    background = parameters.get("background_crop", {})
+    sticker = parameters.get("sticker", {})
+    source_file = source.get("file") or parameters.get("source") or ""
+    page = int(source.get("original_pdf_page") or source.get("page") or parameters.get("page") or 1)
+    path = resolve_source_path(source_file)
+    if not path:
+        raise RuntimeError("Background source was not found.")
+
+    image_path = path
+    if path.suffix.lower() == ".pdf":
+        image_path = Path(tempfile.gettempdir()) / f"label-background-{uuid.uuid4().hex}.png"
+        temp_paths.append(image_path)
+        render_pdf_page_to_png(path, page, image_path)
+
+    width_pt = float(sticker.get("width_pt") or 283.46)
+    height_pt = float(sticker.get("height_pt") or 283.46)
+    x_pt = float(background.get("x_pt") or 0)
+    rendered_width_mm = float(background.get("rendered_width_mm") or background.get("source_width_mm") or sticker.get("width_mm") or 100)
+    rendered_height_mm = float(background.get("rendered_height_mm") or background.get("source_height_mm") or sticker.get("height_mm") or 100)
+    y_from_top_mm = float(background.get("y_mm_from_top") or 0)
+    rendered_width_pt = rendered_width_mm * POINTS_PER_MM
+    rendered_height_pt = rendered_height_mm * POINTS_PER_MM
+    y_pt = height_pt - ((y_from_top_mm * POINTS_PER_MM) + rendered_height_pt)
+
+    c.saveState()
+    p = c.beginPath()
+    p.rect(0, 0, width_pt, height_pt)
+    c.clipPath(p, stroke=0, fill=0)
+    c.drawImage(str(image_path), x_pt, y_pt, width=rendered_width_pt, height=rendered_height_pt, preserveAspectRatio=False, mask="auto")
+    c.restoreState()
 
 
 def image_response(path: Path, width_mm: float | None = None, height_mm: float | None = None):
@@ -430,6 +498,40 @@ def text_only_pdf():
     )
 
 
+@app.post("/label-with-background.pdf")
+def label_with_background_pdf():
+    payload = request.get_json(force=True)
+    parameters = payload.get("parameters", payload)
+    sticker = parameters.get("sticker", {})
+    print_size = parameters.get("print_size", {})
+    width = float(sticker.get("width_pt") or 283.46)
+    height = float(sticker.get("height_pt") or 283.46)
+    rotation = int(print_size.get("rotation") or 0)
+    buffer = BytesIO()
+    temp_paths: list[Path] = []
+    try:
+        c = canvas.Canvas(buffer, pagesize=(width, height))
+        if rotation:
+            c.setPageRotation(rotation % 360)
+        draw_background(c, parameters, temp_paths)
+        for field in parameters.get("text_fields", []):
+            draw_text_field(c, field)
+        c.showPage()
+        c.save()
+        buffer.seek(0)
+        return send_file(
+            buffer,
+            mimetype="application/pdf",
+            as_attachment=False,
+            download_name="label-with-background.pdf",
+        )
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as exc:
+        return jsonify({"error": f"PDF export failed: {exc}"}), 500
+    finally:
+        for path in temp_paths:
+            path.unlink(missing_ok=True)
+
+
 TEMPLATE = """
 <!doctype html>
 <html lang="he" dir="rtl">
@@ -594,7 +696,7 @@ TEMPLATE = """
       color: #111;
       font-family: "Karantina", "Heebo", sans-serif;
       line-height: 0.95;
-      white-space: pre-wrap;
+      white-space: pre;
       cursor: grab;
       border: 1px solid transparent;
       transform: translate(-50%, -50%);
@@ -957,6 +1059,7 @@ TEMPLATE = """
         <div class="daily-actions">
           <button class="secondary" id="newLabel">מדבקה חדשה</button>
           <button id="applyContent">עדכון תצוגה</button>
+          <button class="secondary" id="autoAlignText">יישור טקסט אוטומטי</button>
           <button class="print-button" id="printPdfSide">הדפסת טקסט</button>
         </div>
       </section>
@@ -1106,6 +1209,7 @@ TEMPLATE = """
           <button class="secondary" id="copyJson">העתקת JSON</button>
           <button class="secondary" id="downloadJson">הורדת JSON</button>
           <button class="secondary" id="downloadPdf">הורדת PDF טקסט</button>
+          <button class="secondary" id="downloadFullPdf">הורדת PDF עם רקע</button>
           <button class="secondary" id="printPdf">הדפסת טקסט</button>
         </div>
         <textarea class="json-box" id="jsonOut" readonly></textarea>
@@ -1588,6 +1692,12 @@ TEMPLATE = """
       return roles[role] || null;
     }
 
+    function setRoastDateToToday() {
+      const today = todayText();
+      controls.contentDate.value = today;
+      setRoleText("roast_date", today);
+    }
+
     function weightVariantKey(value) {
       const pretty = prettyWeight(value);
       if (pretty === "½") return "0.5";
@@ -1635,6 +1745,96 @@ TEMPLATE = """
         delete item.letterSpacing;
       }
       statusEl.textContent = "הוחל Kerning לפי קובץ המאסטר.";
+      render();
+    }
+
+    function separatorsByY() {
+      return state.texts
+        .filter((item) => roleForItem(item) === "separator")
+        .concat(state.texts.filter((item) => roleForItem(item) !== "separator" && String(item.text || "").trim() === "|"))
+        .sort((a, b) => a.y - b.y);
+    }
+
+    function placeText(item, x, y, options = {}) {
+      if (!item) return;
+      item.x = x;
+      item.y = y;
+      item.align = options.align || "center";
+      if (options.w === null) delete item.w;
+      else if (options.w !== undefined) item.w = options.w;
+      if (options.size) item.size = options.size;
+      if (options.weight !== undefined) item.weight = options.weight;
+      if (options.kerning !== undefined) item.kerning = options.kerning;
+      delete item.letterSpacing;
+    }
+
+    function isPipeItem(item) {
+      return String(item.text || "").trim() === "|";
+    }
+
+    function autoAlignTargets() {
+      return state.texts.filter((item) => {
+        const role = roleForItem(item);
+        if (!String(item.text || "").trim()) return false;
+        if (isPipeItem(item)) return false;
+        return role !== "roast_date" && role !== "weight_value" && role !== "weight_unit";
+      });
+    }
+
+    function assignRowGeometry(items, xPositions, y, options = {}) {
+      const sorted = [...items].sort((a, b) => a.x - b.x);
+      const count = sorted.length;
+      if (!count) return;
+      const positions = xPositions[count] || evenlySpacedPositions(xPositions.default, count);
+      sorted.forEach((item, index) => {
+        const position = typeof positions[index] === "number" ? {x: positions[index]} : positions[index];
+        placeText(item, position.x, y, {
+          ...position,
+          align: "left",
+          w: null,
+          size: options.size || item.size,
+          kerning: options.kerning ?? itemKerning(item),
+        });
+      });
+    }
+
+    function evenlySpacedPositions(range, count) {
+      const [start, end] = range;
+      if (count <= 1) return [(start + end) / 2];
+      const step = (end - start) / (count - 1);
+      return Array.from({length: count}, (_, index) => start + step * index);
+    }
+
+    function autoAlignText() {
+      applyContent();
+      const isWideTitle = state.sticker.w >= 95;
+      const targets = autoAlignTargets();
+      const originItems = targets.filter((item) => roleForItem(item) === "origin");
+      const titleItems = targets.filter((item) => roleForItem(item) === "title");
+      // Restore the proven grid geometry from the bundled presets. The button
+      // should correct drift without changing the worker-entered label content.
+      const leftTextX = 1.8;
+      for (const item of targets) {
+        delete item.w;
+      }
+      for (const item of originItems) {
+        item.x = leftTextX;
+        item.align = "left";
+        item.kerning = 30;
+        delete item.letterSpacing;
+      }
+
+      for (const item of titleItems) {
+        placeText(item, leftTextX, 78.29, {
+          align: "left",
+          w: null,
+          size: isWideTitle ? 49 : 42,
+          kerning: 10,
+        });
+      }
+
+      // Do not move the text rows, separators, roast_date, weight_value, or weight_unit.
+      statusEl.textContent = "יושרה הכותרת. שורות הטקסט נשארו במיקום השמור.";
       render();
     }
 
@@ -1758,6 +1958,8 @@ TEMPLATE = """
           y_mm_from_top: round1(item.y),
           x_pt: round2(xPt),
           y_pt_from_bottom: round2(stickerHeightPt - yFromTopPt),
+          width_mm: item.w ? round1(item.w) : null,
+          width_pt: item.w ? round2(item.w * mmToPt) : null,
           font_family: "Karantina",
           font_weight: item.weight,
           font_size_pt: item.size,
@@ -1866,6 +2068,28 @@ TEMPLATE = """
       statusEl.textContent = "PDF טקסט בלבד נוצר.";
     }
 
+    async function downloadFullPdf() {
+      applyContent();
+      const response = await fetch("/label-with-background.pdf", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(exportState()),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        statusEl.textContent = payload.error || "יצירת PDF עם רקע נכשלה.";
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "label-with-background.pdf";
+      link.click();
+      URL.revokeObjectURL(url);
+      statusEl.textContent = "PDF עם רקע נוצר.";
+    }
+
     async function printTextOnlyPdf() {
       const blob = await textOnlyPdfBlob();
       if (!blob) return;
@@ -1927,6 +2151,7 @@ TEMPLATE = """
               text: field.text || "",
               x: field.x_mm || 0,
               y: field.y_mm_from_top || 0,
+              w: field.width_mm || null,
               size: field.font_size_pt || 12,
               weight: String(field.font_weight || "400"),
               align: field.align || "center",
@@ -1982,6 +2207,7 @@ TEMPLATE = """
             text: item.text || "",
             x: item.x || item.x_mm || 0,
             y: item.y || item.y_mm_from_top || 0,
+            w: item.w || item.width_mm || null,
             size: item.size || item.font_size_pt || 12,
             weight: String(item.weight || item.font_weight || "400"),
             align: item.align || "center",
@@ -2099,6 +2325,7 @@ TEMPLATE = """
       }
       controls.layoutName.value = payload.layout.name;
       applyLayout(payload.layout.layout, {keepImage: false});
+      setRoastDateToToday();
       markLayoutClean(payload.layout.id, payload.layout.name);
       await loadSource();
       statusEl.textContent = `נטענה פריסה: ${payload.layout.name}`;
@@ -2114,6 +2341,7 @@ TEMPLATE = """
       }
       controls.layoutName.value = payload.layout.name;
       applyLayout(payload.layout.layout, {keepImage: false});
+      setRoastDateToToday();
       markLayoutClean(payload.layout.id, payload.layout.name);
       await loadSource();
       statusEl.textContent = `נטענה פריסה: ${payload.layout.name}`;
@@ -2133,6 +2361,7 @@ TEMPLATE = """
       }
       controls.layoutName.value = payload.layout.name;
       applyLayout(payload.layout.layout, {keepImage: false});
+      setRoastDateToToday();
       markLayoutClean(payload.layout.id, payload.layout.name);
       await loadSource();
       statusEl.textContent = `חזרת לגרסה השמורה: ${payload.layout.name}`;
@@ -2253,6 +2482,7 @@ TEMPLATE = """
     });
 
     document.querySelector("#applyContent").addEventListener("click", applyContent);
+    document.querySelector("#autoAlignText").addEventListener("click", autoAlignText);
     document.querySelector("#newLabel").addEventListener("click", resetDailyContent);
     document.querySelector("#todayDate").addEventListener("click", () => {
       controls.contentDate.value = todayText();
@@ -2288,6 +2518,7 @@ TEMPLATE = """
       URL.revokeObjectURL(url);
     });
     document.querySelector("#downloadPdf").addEventListener("click", downloadTextOnlyPdf);
+    document.querySelector("#downloadFullPdf").addEventListener("click", downloadFullPdf);
     document.querySelector("#printPdf").addEventListener("click", printTextOnlyPdf);
     document.querySelector("#printPdfTop").addEventListener("click", printTextOnlyPdf);
     document.querySelector("#printPdfSide").addEventListener("click", printTextOnlyPdf);
@@ -2320,6 +2551,7 @@ TEMPLATE = """
         state.selectedId = savedState.selectedId || state.selectedId;
         state.mode = savedState.mode || "text";
         applyPersistedContent(savedState.content);
+        setRoastDateToToday();
         if (!savedState.content?.weight) {
           controls.contentWeight.value = "1";
         }

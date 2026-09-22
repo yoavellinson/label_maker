@@ -1025,6 +1025,29 @@ TEMPLATE = """
             <input id="contentRoast" type="text" value="קלייה בינונית כהה">
           </label>
           <label>
+            סוג פולים
+            <select id="beanTypeMode">
+              <option value="single" selected>חד זני</option>
+              <option value="blend">תערובת</option>
+            </select>
+          </label>
+          <label>
+            אחוז ערביקה
+            <select id="blendArabica">
+              <option value="30">30%</option>
+              <option value="50">50%</option>
+              <option value="70">70%</option>
+              <option value="100" selected>100%</option>
+            </select>
+          </label>
+          <label>
+            פולי חד זני
+            <select id="singleBean">
+              <option value="ערביקה" selected>ערביקה</option>
+              <option value="רובוסטה">רובוסטה</option>
+            </select>
+          </label>
+          <label>
             משקל
             <input id="contentWeight" type="text" value="1">
           </label>
@@ -1047,7 +1070,7 @@ TEMPLATE = """
           </label>
           <label>
             כשרות
-            <input id="contentKosher" type="text" value="כשר בהשגחת הרבנות חתם סופר">
+            <input id="contentKosher" type="text" value="כשרות חתם סופר">
           </label>
         </div>
         <div class="buttons">
@@ -1246,6 +1269,9 @@ TEMPLATE = """
       contentTitle: document.querySelector("#contentTitle"),
       contentTastes: document.querySelector("#contentTastes"),
       contentRoast: document.querySelector("#contentRoast"),
+      beanTypeMode: document.querySelector("#beanTypeMode"),
+      blendArabica: document.querySelector("#blendArabica"),
+      singleBean: document.querySelector("#singleBean"),
       contentWeight: document.querySelector("#contentWeight"),
       contentDate: document.querySelector("#contentDate"),
       printRotation: document.querySelector("#printRotation"),
@@ -1276,8 +1302,9 @@ TEMPLATE = """
       title: {role: "title", name: "שם מרכזי", text: "שם הקפה", x: 48, y: 25, size: 28, kerning: 10, weight: "300", align: "center"},
       taste: {role: "tastes", name: "טעמים", text: "פירות יער | שוקולד | הדרים", x: 50, y: 37, size: 13, kerning: 30, weight: "400", align: "center"},
       roast: {role: "roast_level", name: "קלייה", text: "קלייה בינונית כהה", x: 28, y: 39, size: 13, kerning: 30, weight: "400", align: "center"},
+      bean_type: {role: "bean_type", name: "סוג פולים", text: "חד זני 100% ערביקה", x: 14, y: 96.1, size: 13.5, kerning: 30, weight: "400", align: "center"},
       process: {role: "process_label", name: "עיבוד", text: "עיבוד:", x: 62, y: 44, size: 13, kerning: 30, weight: "400", align: "center"},
-      kosher: {role: "kosher", name: "כשרות", text: "כשר בהשגחת הרבנות חתם סופר", x: 28, y: 44, size: 12.5, kerning: 30, weight: "300", align: "center"},
+      kosher: {role: "kosher", name: "כשרות", text: "כשרות חתם סופר", x: 28, y: 44, size: 12.5, kerning: 30, weight: "300", align: "center"},
       weight: {role: "weight_value", name: "משקל", text: "1", x: 86, y: 28, size: 49, kerning: 0, weight: "300", align: "center"},
       weight_unit: {role: "weight_unit", name: "ק״ג", text: "ק״ג", x: 78, y: 28, size: 28, kerning: 30, weight: "300", align: "center"},
       date: {role: "roast_date", name: "תאריך", text: "", x: 85, y: 42, size: 13, kerning: 30, weight: "400", align: "center"},
@@ -1289,6 +1316,7 @@ TEMPLATE = """
       origin: 30,
       tastes: 30,
       roast_level: 30,
+      bean_type: 30,
       process_label: 30,
       kosher: 30,
       roast_date: 30,
@@ -1405,6 +1433,9 @@ TEMPLATE = """
           title: controls.contentTitle.value,
           tastes: controls.contentTastes.value,
           roast: controls.contentRoast.value,
+          beanTypeMode: controls.beanTypeMode.value,
+          blendArabica: controls.blendArabica.value,
+          singleBean: controls.singleBean.value,
           weight: controls.contentWeight.value,
           date: controls.contentDate.value,
           printRotation: controls.printRotation.value,
@@ -1486,6 +1517,9 @@ TEMPLATE = """
       controls.contentTitle.value = content.title ?? controls.contentTitle.value;
       controls.contentTastes.value = content.tastes ?? controls.contentTastes.value;
       controls.contentRoast.value = content.roast ?? controls.contentRoast.value;
+      controls.beanTypeMode.value = content.beanTypeMode ?? controls.beanTypeMode.value;
+      controls.blendArabica.value = content.blendArabica ?? controls.blendArabica.value;
+      controls.singleBean.value = content.singleBean ?? controls.singleBean.value;
       controls.contentWeight.value = content.weight ?? controls.contentWeight.value;
       controls.contentDate.value = content.date ?? controls.contentDate.value;
       controls.printRotation.value = content.printRotation ?? controls.printRotation.value;
@@ -1646,8 +1680,10 @@ TEMPLATE = """
     }
 
     function roleForItem(item) {
-      if (item.role) return item.role;
       const text = (item.text || "").trim();
+      if (text === "|") return "separator";
+      if ((text.startsWith("חד זני") || text.startsWith("תערובת") || text === "ערביקה" || text === "רובוסטה") && !text.includes("כשר")) return "bean_type";
+      if (item.role) return item.role;
       if (item.name === "שם מרכזי") return "title";
       if (item.name === "תאריך" || new RegExp("^\\\\d{2}/\\\\d{2}/\\\\d{4}$").test(text) || text.includes("תאריך קלייה")) return "roast_date";
       if (text === "ק״ג") return "weight_unit";
@@ -1655,9 +1691,27 @@ TEMPLATE = """
       if (text === "עיבוד:" || text.startsWith("עיבוד:")) return "process_label";
       if (text.includes("כשר")) return "kosher";
       if (text.includes("קלייה")) return "roast_level";
-      if (text === "|") return "separator";
       if (text) return "tastes";
       return "";
+    }
+
+    function beanTypeText() {
+      if (controls.beanTypeMode.value === "blend") {
+        return `תערובת ${controls.blendArabica.value}% ערביקה`;
+      }
+      return `חד זני - ${controls.singleBean.value}`;
+    }
+
+    function syncBeanControlsFromText(text) {
+      const value = String(text || "").trim();
+      const blendMatch = value.match(/תערובת\\s*(30|50|70|100)%?\\s*ערביקה/);
+      if (blendMatch) {
+        controls.beanTypeMode.value = "blend";
+        controls.blendArabica.value = blendMatch[1];
+        return;
+      }
+      controls.beanTypeMode.value = "single";
+      controls.singleBean.value = value.includes("רובוסטה") ? "רובוסטה" : "ערביקה";
     }
 
     function itemsByRole() {
@@ -1675,6 +1729,7 @@ TEMPLATE = """
       if (roles.title) controls.contentTitle.value = roles.title.text;
       if (roles.tastes) controls.contentTastes.value = roles.tastes.text;
       if (roles.roast_level) controls.contentRoast.value = roles.roast_level.text;
+      if (roles.bean_type) syncBeanControlsFromText(roles.bean_type.text);
       if (roles.weight_value) controls.contentWeight.value = roles.weight_value.text.replace("ק״ג", "").trim();
       if (roles.roast_date) controls.contentDate.value = roles.roast_date.text.replace("תאריך קלייה:", "").trim() || todayText();
       if (roles.process_label) controls.contentProcess.value = roles.process_label.text.replace("עיבוד:", "").trim();
@@ -1690,6 +1745,44 @@ TEMPLATE = """
         roles[role].text = text;
       }
       return roles[role] || null;
+    }
+
+    function ensureRoleText(role, presetKey, text) {
+      const existing = setRoleText(role, text);
+      if (existing) return existing;
+      const preset = presets[presetKey];
+      if (!preset) return null;
+      const item = {
+        id: crypto.randomUUID(),
+        color: "#111111",
+        ...preset,
+        role,
+        text,
+      };
+      state.texts.push(item);
+      return item;
+    }
+
+    function ensureSeparators(count) {
+      const separators = state.texts.filter(isPipeItem);
+      while (separators.length < count) {
+        const item = {
+          id: crypto.randomUUID(),
+          color: "#111111",
+          ...presets.separator,
+          role: "separator",
+        };
+        state.texts.push(item);
+        separators.push(item);
+      }
+      return separators;
+    }
+
+    function bringSeparatorsToFront() {
+      state.texts = [
+        ...state.texts.filter((item) => !isPipeItem(item)),
+        ...state.texts.filter(isPipeItem),
+      ];
     }
 
     function setRoastDateToToday() {
@@ -1809,32 +1902,42 @@ TEMPLATE = """
       applyContent();
       const isWideTitle = state.sticker.w >= 95;
       const targets = autoAlignTargets();
-      const originItems = targets.filter((item) => roleForItem(item) === "origin");
-      const titleItems = targets.filter((item) => roleForItem(item) === "title");
-      // Restore the proven grid geometry from the bundled presets. The button
-      // should correct drift without changing the worker-entered label content.
+      const roles = {};
+      const separators = ensureSeparators(3);
+      for (const item of state.texts) {
+        if (isPipeItem(item)) {
+          continue;
+        }
+        const role = roleForItem(item);
+        if (role && !roles[role]) roles[role] = item;
+      }
       const leftTextX = 1.8;
+      const topY = 89.0;
+      const bottomY = 96.0;
+      const topSepX = 23.4;
+      const bottomSepOneX = 22.8;
+      const bottomSepTwoX = 43.4;
       for (const item of targets) {
         delete item.w;
       }
-      for (const item of originItems) {
-        item.x = leftTextX;
-        item.align = "left";
-        item.kerning = 30;
-        delete item.letterSpacing;
-      }
 
-      for (const item of titleItems) {
-        placeText(item, leftTextX, 78.29, {
-          align: "left",
-          w: null,
-          size: isWideTitle ? 49 : 42,
-          kerning: 10,
-        });
-      }
+      placeText(roles.origin, leftTextX, 65.2, {align: "left", w: null, size: 18, kerning: 30});
+      placeText(roles.title, leftTextX, 78.29, {align: "left", w: null, size: isWideTitle ? 49 : 42, kerning: 10});
+      placeText(roles.roast_level, leftTextX, topY, {align: "left", w: null, size: 13.5, kerning: 20});
+      placeText(roles.tastes, 27.2, topY, {align: "left", w: null, size: 13.5, kerning: 20});
+      placeText(roles.bean_type, leftTextX, bottomY, {align: "left", w: null, size: 13.5, kerning: 20});
+      placeText(roles.process_label, 28.8, bottomY, {align: "left", w: null, size: 13.5, kerning: 20});
+      placeText(roles.kosher, 50.4, bottomY, {align: "left", w: null, size: 13.5, kerning: 20});
 
-      // Do not move the text rows, separators, roast_date, weight_value, or weight_unit.
-      statusEl.textContent = "יושרה הכותרת. שורות הטקסט נשארו במיקום השמור.";
+      placeText(separators[0], topSepX, topY, {align: "center", w: null, size: 14, kerning: 0});
+      placeText(separators[1], bottomSepOneX, bottomY, {align: "center", w: null, size: 14, kerning: 0});
+      placeText(separators[2], bottomSepTwoX, bottomY, {align: "center", w: null, size: 14, kerning: 0});
+      for (const extra of separators.slice(3)) {
+        extra.text = "";
+      }
+      bringSeparatorsToFront();
+
+      statusEl.textContent = "כל שדות הטקסט יושרו לפי פריסת המדבקה.";
       render();
     }
 
@@ -1845,6 +1948,7 @@ TEMPLATE = """
       setRoleText("title", controls.contentTitle.value);
       setRoleText("tastes", controls.contentTastes.value);
       setRoleText("roast_level", controls.contentRoast.value);
+      ensureRoleText("bean_type", "bean_type", beanTypeText());
       const weightItem = setRoleText("weight_value", prettyWeight(controls.contentWeight.value));
       if (weightItem && Number(weightItem.size || 0) < 49) {
         weightItem.size = 49;
@@ -1861,10 +1965,13 @@ TEMPLATE = """
       controls.contentTitle.value = "אתיופיה דג׳ימה";
       controls.contentTastes.value = "חזק, אש, מעושן";
       controls.contentRoast.value = "קלייה בינונית כהה";
+      controls.beanTypeMode.value = "single";
+      controls.blendArabica.value = "100";
+      controls.singleBean.value = "ערביקה";
       controls.contentWeight.value = "1";
       controls.contentDate.value = todayText();
       controls.contentProcess.value = "";
-      controls.contentKosher.value = "כשר בהשגחת הרבנות חתם סופר";
+      controls.contentKosher.value = "כשרות חתם סופר";
       applyContent();
     }
 
@@ -2465,8 +2572,9 @@ TEMPLATE = """
       input.addEventListener("input", updateActiveItem);
     }
 
-    for (const input of [controls.contentTitle, controls.contentTastes, controls.contentRoast, controls.contentWeight, controls.contentDate, controls.contentProcess, controls.contentKosher]) {
+    for (const input of [controls.contentTitle, controls.contentTastes, controls.contentRoast, controls.beanTypeMode, controls.blendArabica, controls.singleBean, controls.contentWeight, controls.contentDate, controls.contentProcess, controls.contentKosher]) {
       input.addEventListener("input", applyContent);
+      input.addEventListener("change", applyContent);
     }
 
     for (const input of [controls.layoutName]) {

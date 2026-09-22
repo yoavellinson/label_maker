@@ -130,6 +130,7 @@ def read_layout_db() -> dict:
 
 def write_layout_db(data: dict) -> None:
     GRID_DIR.mkdir(parents=True, exist_ok=True)
+    backup_layout_db()
     LAYOUT_DB_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
@@ -141,6 +142,15 @@ def copy_if_missing(source: Path, destination: Path) -> None:
         shutil.copytree(source, destination)
     else:
         shutil.copy2(source, destination)
+
+
+def backup_layout_db() -> None:
+    if not LAYOUT_DB_PATH.exists():
+        return
+    backup_dir = GRID_DIR / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    shutil.copy2(LAYOUT_DB_PATH, backup_dir / f"layout_presets-{timestamp}.json")
 
 
 def ensure_runtime_data() -> None:
@@ -343,6 +353,18 @@ def get_layout(layout_id: str):
     for layout in db.get("layouts", []):
         if layout.get("id") == layout_id:
             return jsonify({"layout": layout})
+    return jsonify({"error": "Layout not found."}), 404
+
+
+@app.delete("/layouts/<layout_id>")
+def delete_layout(layout_id: str):
+    db = read_layout_db()
+    layouts = db.setdefault("layouts", [])
+    for index, layout in enumerate(layouts):
+        if layout.get("id") == layout_id:
+            removed = layouts.pop(index)
+            write_layout_db(db)
+            return jsonify({"ok": True, "layout": layout_summary(removed), "path": logical_source_path(LAYOUT_DB_PATH)})
     return jsonify({"error": "Layout not found."}), 404
 
 
@@ -1072,6 +1094,7 @@ TEMPLATE = """
           <button class="secondary" id="saveNamedLayout">עדכון הפריסה השמורה</button>
           <button class="secondary" id="saveAsNamedLayout">שמירה כפריסה חדשה</button>
           <button class="secondary" id="resetNamedLayout">ביטול שינויים</button>
+          <button class="danger" id="deleteNamedLayout">מחיקת פריסה</button>
           <button class="secondary" id="refreshLayouts">רענון רשימה</button>
         </div>
       </section>
@@ -1138,6 +1161,7 @@ TEMPLATE = """
       saveNamedLayout: document.querySelector("#saveNamedLayout"),
       saveAsNamedLayout: document.querySelector("#saveAsNamedLayout"),
       resetNamedLayout: document.querySelector("#resetNamedLayout"),
+      deleteNamedLayout: document.querySelector("#deleteNamedLayout"),
       loadNamedLayout: document.querySelector("#loadNamedLayout"),
       jsonOut: document.querySelector("#jsonOut"),
       textList: document.querySelector("#textList"),
@@ -1310,6 +1334,7 @@ TEMPLATE = """
       controls.saveNamedLayout.disabled = !activeLayoutId || !dirty;
       controls.resetNamedLayout.disabled = !activeLayoutId || !dirty;
       controls.loadNamedLayout.disabled = !controls.savedLayouts.value;
+      controls.deleteNamedLayout.disabled = !(controls.savedLayouts.value || activeLayoutId);
       controls.saveStatus.classList.remove("clean", "dirty", "draft");
       if (!activeLayoutId) {
         controls.saveStatus.classList.add("draft");
@@ -2113,6 +2138,32 @@ TEMPLATE = """
       statusEl.textContent = `חזרת לגרסה השמורה: ${payload.layout.name}`;
     }
 
+    async function deleteNamedLayout() {
+      const id = controls.savedLayouts.value || activeLayoutId;
+      if (!id) {
+        statusEl.textContent = "בחר פריסה למחיקה.";
+        return;
+      }
+      const selectedName = controls.savedLayouts.selectedOptions[0]?.textContent || activeLayoutName || controls.layoutName.value.trim();
+      if (!window.confirm(`למחוק את הפריסה השמורה "${selectedName}"? הפעולה מוחקת רק את הפריסה הזו מהמאגר.`)) {
+        statusEl.textContent = "המחיקה בוטלה.";
+        return;
+      }
+      const response = await fetch(`/layouts/${encodeURIComponent(id)}`, {method: "DELETE"});
+      const payload = await response.json();
+      if (!response.ok) {
+        statusEl.textContent = payload.error || "מחיקת הפריסה נכשלה.";
+        return;
+      }
+      if (activeLayoutId === id) {
+        clearActiveLayout();
+      }
+      await refreshLayoutList();
+      controls.savedLayouts.value = "";
+      statusEl.textContent = `נמחקה פריסה: ${payload.layout.name}. התצוגה הנוכחית נשארה כטיוטה.`;
+      updateSaveStatus();
+    }
+
     function setMode(mode) {
       state.mode = mode;
       document.querySelector("#textMode").classList.toggle("active", mode === "text");
@@ -2220,6 +2271,7 @@ TEMPLATE = """
     document.querySelector("#saveNamedLayout").addEventListener("click", saveNamedLayout);
     document.querySelector("#saveAsNamedLayout").addEventListener("click", saveAsNamedLayout);
     document.querySelector("#resetNamedLayout").addEventListener("click", resetNamedLayout);
+    document.querySelector("#deleteNamedLayout").addEventListener("click", deleteNamedLayout);
     document.querySelector("#loadNamedLayout").addEventListener("click", loadNamedLayout);
     document.querySelector("#refreshLayouts").addEventListener("click", refreshLayoutList);
     document.querySelector("#copyJson").addEventListener("click", async () => {

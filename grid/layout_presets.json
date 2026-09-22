@@ -321,7 +321,7 @@
     {
       "id": "4dd714f89087426cab531cbfdcdf2eca",
       "name": "אתיופיה דג׳ימה בינוני כהה",
-      "updated_at": "2026-09-07T10:20:43",
+      "updated_at": "2026-09-08T14:44:29",
       "layout": {
         "purpose": "label_layout_preset",
         "version": 1,
@@ -329,14 +329,13 @@
         "editor_state": {
           "source": "grid/final_stickers.con_16.8.26 (1).pdf",
           "page": 6,
+          "originalPdf": "grid/final_stickers.con_16.8.26 (1).pdf",
+          "originalPdfPage": 6,
           "sticker": {
             "w": 100,
             "h": 100
           },
-          "printSize": {
-            "w": 97,
-            "h": 97
-          },
+          "printRotation": 0,
           "weightVariants": {
             "0.25": {
               "align": "center",
@@ -357,8 +356,8 @@
             "x": -11.7,
             "y": -11.6,
             "scale": 1,
-            "pageW": 123.28348611111109,
-            "pageH": 123.28348611111109
+            "pageW": 123.2834848192003,
+            "pageH": 123.2834848192003
           },
           "texts": [
             {
@@ -367,12 +366,12 @@
               "role": "title",
               "name": "שם מרכזי",
               "text": "אתיופיה דג׳ימה",
-              "x": 29.2,
-              "y": 78.2,
+              "x": 28.547098214285715,
+              "y": 78.29393601190476,
               "size": 49,
-              "letterSpacing": 1,
               "weight": "300",
-              "align": "center"
+              "align": "center",
+              "kerning": 10
             },
             {
               "id": "23479f7f-b6aa-44df-b60d-ca248dd47cc3",
@@ -383,9 +382,9 @@
               "x": 38.6,
               "y": 89,
               "size": 13.5,
-              "letterSpacing": 0.2,
               "weight": "400",
-              "align": "center"
+              "align": "center",
+              "kerning": 30
             },
             {
               "id": "eafa23ed-d7a3-4a13-8e22-9191e79c782d",
@@ -393,12 +392,12 @@
               "role": "roast_level",
               "name": "קלייה",
               "text": "קלייה בינונית כהה",
-              "x": 14.3,
+              "x": 13.067671130952382,
               "y": 89,
               "size": 13.5,
-              "letterSpacing": 0.3,
               "weight": "400",
-              "align": "center"
+              "align": "center",
+              "kerning": 30
             },
             {
               "id": "06e051f5-2b6a-4a75-96a8-4b8ba0b0c6fa",
@@ -406,25 +405,25 @@
               "role": "process_label",
               "name": "עיבוד",
               "text": "עיבוד: חצי שטוף",
-              "x": 50.7,
-              "y": 94.8,
+              "x": 39.07239583333334,
+              "y": 96.10580357142857,
               "size": 13.5,
-              "letterSpacing": 0.7,
               "weight": "300",
-              "align": "center"
+              "align": "center",
+              "kerning": 30
             },
             {
               "id": "94636866-7ef1-44b2-ab38-93d3bdfece5b",
               "color": "#111111",
               "role": "kosher",
               "name": "כשרות",
-              "text": "כשר בהשגחת הרבנות חתם סופר",
-              "x": 20.9,
-              "y": 94.7,
+              "text": "כשרות חתם סופר",
+              "x": 61.25249255952381,
+              "y": 95.96023065476192,
               "size": 13.5,
-              "letterSpacing": 0.3,
               "weight": "300",
-              "align": "center"
+              "align": "center",
+              "kerning": 30
             },
             {
               "id": "c722b0cd-0126-464f-8fd4-727d83001265",
@@ -435,9 +434,9 @@
               "x": 95.61551339285714,
               "y": 77.60892857142856,
               "size": 49,
-              "letterSpacing": 1,
               "weight": "300",
-              "align": "center"
+              "align": "center",
+              "kerning": 0
             },
             {
               "id": "a88176c1-3d14-4688-89c8-5523da8e0406",
@@ -448,9 +447,9 @@
               "x": 92.14761904761905,
               "y": 81.9860119047619,
               "size": 13.5,
-              "letterSpacing": 0,
               "weight": "300",
-              "align": "center"
+              "align": "center",
+              "kerning": 30
             },
             {
               "id": "b31fdacf-90b3-41a7-9b8e-cccfffce4eb8",
@@ -461,9 +460,9 @@
               "x": 86.6,
               "y": 94.4,
               "size": 13.5,
-              "letterSpacing": 0,
               "weight": "400",
-              "align": "center"
+              "align": "center",
+              "kerning": 30
             },
             {
               "id": "c107e772-e1b7-4963-8b9a-20796a597357",
@@ -474,9 +473,9 @@
               "x": 85,
               "y": 42,
               "size": 13,
-              "letterSpacing": 0,
               "weight": "400",
-              "align": "center"
+              "align": "center",
+              "kerning": 30
             },
             {
               "id": "f3c96025-6834-47d5-bdca-d58cab495223",
@@ -487,9 +486,9 @@
               "x": 26.7140625,
               "y": 89.14668898809524,
               "size": 14,
-              "letterSpacing": 0,
               "weight": "300",
-              "align": "center"
+              "align": "center",
+              "kerning": 0
             },
             {
               "id": "3f2ed713-0553-4588-b795-6b75156e15be",
@@ -497,10 +496,36 @@
               "role": "weight_value",
               "name": "משקל",
               "text": "|",
-              "x": 39.879910714285714,
-              "y": 94.77433035714286,
+              "x": 50.30680803571429,
+              "y": 96.07269345238096,
               "size": 14,
-              "letterSpacing": 0,
+              "weight": "300",
+              "align": "center",
+              "kerning": 0
+            },
+            {
+              "id": "9b99074e-b914-4ee4-b2bf-f9d3fc7ef53e",
+              "color": "#111111",
+              "kerning": 0,
+              "role": "separator",
+              "name": "מפריד",
+              "text": "|",
+              "x": 27.8,
+              "y": 96.2,
+              "size": 13.5,
+              "weight": "300",
+              "align": "center"
+            },
+            {
+              "id": "e3d3e34d-0852-4eb1-8909-c6b168cf19ae",
+              "color": "#111111",
+              "kerning": 30,
+              "role": "tastes",
+              "name": "טעמים",
+              "text": "חד זני 100% ערביקה",
+              "x": 14,
+              "y": 96.1,
+              "size": 13.5,
               "weight": "300",
               "align": "center"
             }
@@ -515,7 +540,9 @@
           },
           "source": {
             "file": "grid/final_stickers.con_16.8.26 (1).pdf",
-            "page": 6
+            "page": 6,
+            "original_pdf": "grid/final_stickers.con_16.8.26 (1).pdf",
+            "original_pdf_page": 6
           },
           "sticker": {
             "width_mm": 100,
@@ -524,11 +551,8 @@
             "height_pt": 283.46
           },
           "print_size": {
-            "width_mm": 97,
-            "height_mm": 97,
-            "width_pt": 274.96,
-            "height_pt": 274.96,
-            "note": "Used only for text-only PDF output. Preview/layout coordinates stay based on sticker size."
+            "rotation": 0,
+            "note": "Used only for text-only PDF page orientation. Print size and coordinates use the sticker size."
           },
           "weight_variants": {
             "0.5": {
@@ -564,14 +588,15 @@
               "role": "title",
               "name": "שם מרכזי",
               "text": "אתיופיה דג׳ימה",
-              "x_mm": 29.2,
-              "y_mm_from_top": 78.2,
-              "x_pt": 82.77,
-              "y_pt_from_bottom": 61.8,
+              "x_mm": 28.5,
+              "y_mm_from_top": 78.3,
+              "x_pt": 80.92,
+              "y_pt_from_bottom": 61.53,
               "font_family": "Karantina",
               "font_weight": "300",
               "font_size_pt": 49,
-              "letter_spacing_pt": 1,
+              "kerning": 10,
+              "letter_spacing_pt": 0.49,
               "align": "center",
               "rtl": true,
               "color": "#111111"
@@ -588,7 +613,8 @@
               "font_family": "Karantina",
               "font_weight": "400",
               "font_size_pt": 13.5,
-              "letter_spacing_pt": 0.2,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
               "align": "center",
               "rtl": true,
               "color": "#111111"
@@ -598,14 +624,15 @@
               "role": "roast_level",
               "name": "קלייה",
               "text": "קלייה בינונית כהה",
-              "x_mm": 14.3,
+              "x_mm": 13.1,
               "y_mm_from_top": 89,
-              "x_pt": 40.54,
+              "x_pt": 37.04,
               "y_pt_from_bottom": 31.18,
               "font_family": "Karantina",
               "font_weight": "400",
               "font_size_pt": 13.5,
-              "letter_spacing_pt": 0.3,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
               "align": "center",
               "rtl": true,
               "color": "#111111"
@@ -615,14 +642,15 @@
               "role": "process_label",
               "name": "עיבוד",
               "text": "עיבוד: חצי שטוף",
-              "x_mm": 50.7,
-              "y_mm_from_top": 94.8,
-              "x_pt": 143.72,
-              "y_pt_from_bottom": 14.74,
+              "x_mm": 39.1,
+              "y_mm_from_top": 96.1,
+              "x_pt": 110.76,
+              "y_pt_from_bottom": 11.04,
               "font_family": "Karantina",
               "font_weight": "300",
               "font_size_pt": 13.5,
-              "letter_spacing_pt": 0.7,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
               "align": "center",
               "rtl": true,
               "color": "#111111"
@@ -631,15 +659,16 @@
               "id": "94636866-7ef1-44b2-ab38-93d3bdfece5b",
               "role": "kosher",
               "name": "כשרות",
-              "text": "כשר בהשגחת הרבנות חתם סופר",
-              "x_mm": 20.9,
-              "y_mm_from_top": 94.7,
-              "x_pt": 59.24,
-              "y_pt_from_bottom": 15.02,
+              "text": "כשרות חתם סופר",
+              "x_mm": 61.3,
+              "y_mm_from_top": 96,
+              "x_pt": 173.63,
+              "y_pt_from_bottom": 11.45,
               "font_family": "Karantina",
               "font_weight": "300",
               "font_size_pt": 13.5,
-              "letter_spacing_pt": 0.3,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
               "align": "center",
               "rtl": true,
               "color": "#111111"
@@ -656,7 +685,8 @@
               "font_family": "Karantina",
               "font_weight": "300",
               "font_size_pt": 49,
-              "letter_spacing_pt": 1,
+              "kerning": 0,
+              "letter_spacing_pt": 0,
               "align": "center",
               "rtl": true,
               "color": "#111111"
@@ -673,7 +703,8 @@
               "font_family": "Karantina",
               "font_weight": "300",
               "font_size_pt": 13.5,
-              "letter_spacing_pt": 0,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
               "align": "center",
               "rtl": true,
               "color": "#111111"
@@ -690,7 +721,8 @@
               "font_family": "Karantina",
               "font_weight": "400",
               "font_size_pt": 13.5,
-              "letter_spacing_pt": 0,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
               "align": "center",
               "rtl": true,
               "color": "#111111"
@@ -707,7 +739,8 @@
               "font_family": "Karantina",
               "font_weight": "400",
               "font_size_pt": 13,
-              "letter_spacing_pt": 0,
+              "kerning": 30,
+              "letter_spacing_pt": 0.39,
               "align": "center",
               "rtl": true,
               "color": "#111111"
@@ -724,6 +757,7 @@
               "font_family": "Karantina",
               "font_weight": "300",
               "font_size_pt": 14,
+              "kerning": 0,
               "letter_spacing_pt": 0,
               "align": "center",
               "rtl": true,
@@ -734,14 +768,51 @@
               "role": "weight_value",
               "name": "משקל",
               "text": "|",
-              "x_mm": 39.9,
-              "y_mm_from_top": 94.8,
-              "x_pt": 113.05,
-              "y_pt_from_bottom": 14.81,
+              "x_mm": 50.3,
+              "y_mm_from_top": 96.1,
+              "x_pt": 142.6,
+              "y_pt_from_bottom": 11.13,
               "font_family": "Karantina",
               "font_weight": "300",
               "font_size_pt": 14,
+              "kerning": 0,
               "letter_spacing_pt": 0,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "9b99074e-b914-4ee4-b2bf-f9d3fc7ef53e",
+              "role": "separator",
+              "name": "מפריד",
+              "text": "|",
+              "x_mm": 27.8,
+              "y_mm_from_top": 96.2,
+              "x_pt": 78.8,
+              "y_pt_from_bottom": 10.77,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 13.5,
+              "kerning": 0,
+              "letter_spacing_pt": 0,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "e3d3e34d-0852-4eb1-8909-c6b168cf19ae",
+              "role": "tastes",
+              "name": "טעמים",
+              "text": "חד זני 100% ערביקה",
+              "x_mm": 14,
+              "y_mm_from_top": 96.1,
+              "x_pt": 39.69,
+              "y_pt_from_bottom": 11.06,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 13.5,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
               "align": "center",
               "rtl": true,
               "color": "#111111"
@@ -752,12 +823,8 @@
               283.46,
               283.46
             ],
-            "print_canvas_size": [
-              274.96,
-              274.96
-            ],
             "draw_background": "drawImage(background, x_pt, y_pt_from_bottom, width=rendered_width_mm*mm, height=rendered_height_mm*mm) and clip/crop to sticker bounds",
-            "draw_text": "draw text at x_pt, y_pt_from_bottom using align and font_size_pt; for print-only size, scale x/y/font from sticker canvas to print canvas"
+            "draw_text": "draw text centered vertically at x_pt, y_pt_from_bottom using align, font_size_pt, and kerning; kerning is Illustrator-style tracking, where 30 means 30/1000 of font size"
           }
         }
       }
@@ -1208,12 +1275,12 @@
     },
     {
       "id": "588921b72c4146758070d4c19d650ada",
-      "name": "אתיופיה דג׳ימה בינוני",
-      "updated_at": "2026-09-08T11:46:50",
+      "name": "דג׳ימה",
+      "updated_at": "2026-09-08T14:42:39",
       "layout": {
         "purpose": "label_layout_preset",
         "version": 1,
-        "name": "אתיופיה דג׳ימה בינוני",
+        "name": "דג׳ימה",
         "editor_state": {
           "source": "grid/final_stickers.con_16.8.26 (1).pdf",
           "page": 4,
@@ -1222,10 +1289,6 @@
           "sticker": {
             "w": 100,
             "h": 100
-          },
-          "printSize": {
-            "w": 97,
-            "h": 97
           },
           "printRotation": -90,
           "weightVariants": {
@@ -1248,8 +1311,8 @@
             "x": -11.7,
             "y": -11.6,
             "scale": 1,
-            "pageW": 123.28348611111109,
-            "pageH": 123.28348611111109
+            "pageW": 123.2834848192003,
+            "pageH": 123.2834848192003
           },
           "texts": [
             {
@@ -1258,8 +1321,8 @@
               "role": "title",
               "name": "שם מרכזי",
               "text": "אתיופיה דג׳ימה",
-              "x": 29.2,
-              "y": 78.2,
+              "x": 27.71655505952381,
+              "y": 78.26510416666667,
               "size": 49,
               "weight": "300",
               "align": "center",
@@ -1271,8 +1334,8 @@
               "role": "tastes",
               "name": "טעמים",
               "text": "חזק, אש, מעושן",
-              "x": 38.6,
-              "y": 89,
+              "x": 31.668266369047622,
+              "y": 89.36458333333333,
               "size": 13.5,
               "weight": "400",
               "align": "center",
@@ -1284,23 +1347,10 @@
               "role": "roast_level",
               "name": "קלייה",
               "text": "קלייה בינונית",
-              "x": 14.3,
-              "y": 89,
+              "x": 9.5,
+              "y": 89.3,
               "size": 13.5,
               "weight": "400",
-              "align": "center",
-              "kerning": 30
-            },
-            {
-              "id": "06e051f5-2b6a-4a75-96a8-4b8ba0b0c6fa",
-              "color": "#111111",
-              "role": "process_label",
-              "name": "עיבוד",
-              "text": "עיבוד: חצי שטוף",
-              "x": 50.7,
-              "y": 94.8,
-              "size": 13.5,
-              "weight": "300",
               "align": "center",
               "kerning": 30
             },
@@ -1310,8 +1360,8 @@
               "role": "kosher",
               "name": "כשרות",
               "text": "כשר בהשגחת הרבנות חתם סופר",
-              "x": 20.9,
-              "y": 94.7,
+              "x": 53.78046874999999,
+              "y": 95.63813244047617,
               "size": 13.5,
               "weight": "300",
               "align": "center",
@@ -1375,25 +1425,25 @@
               "role": "weight_value",
               "name": "משקל",
               "text": "|",
-              "x": 26.7140625,
-              "y": 89.14668898809524,
+              "x": 19.27916666666667,
+              "y": 89.3978050595238,
               "size": 14,
               "weight": "300",
               "align": "center",
               "kerning": 0
             },
             {
-              "id": "3f2ed713-0553-4588-b795-6b75156e15be",
+              "id": "770cb0f9-2220-4513-b62c-1529cdf19242",
               "color": "#111111",
-              "role": "weight_value",
-              "name": "משקל",
-              "text": "|",
-              "x": 39.879910714285714,
-              "y": 94.77433035714286,
-              "size": 14,
+              "kerning": 30,
+              "role": "tastes",
+              "name": "טעמים",
+              "text": "חד זני 100% ערביקה",
+              "x": 13.203943452380953,
+              "y": 96.1,
+              "size": 13.5,
               "weight": "300",
-              "align": "center",
-              "kerning": 0
+              "align": "center"
             }
           ]
         },
@@ -1417,12 +1467,8 @@
             "height_pt": 283.46
           },
           "print_size": {
-            "width_mm": 97,
-            "height_mm": 97,
-            "width_pt": 274.96,
-            "height_pt": 274.96,
             "rotation": -90,
-            "note": "Used only for text-only PDF output. Preview/layout coordinates stay based on sticker size."
+            "note": "Used only for text-only PDF page orientation. Print size and coordinates use the sticker size."
           },
           "weight_variants": {
             "0.5": {
@@ -1458,10 +1504,10 @@
               "role": "title",
               "name": "שם מרכזי",
               "text": "אתיופיה דג׳ימה",
-              "x_mm": 29.2,
-              "y_mm_from_top": 78.2,
-              "x_pt": 82.77,
-              "y_pt_from_bottom": 61.8,
+              "x_mm": 27.7,
+              "y_mm_from_top": 78.3,
+              "x_pt": 78.57,
+              "y_pt_from_bottom": 61.61,
               "font_family": "Karantina",
               "font_weight": "300",
               "font_size_pt": 49,
@@ -1476,10 +1522,10 @@
               "role": "tastes",
               "name": "טעמים",
               "text": "חזק, אש, מעושן",
-              "x_mm": 38.6,
-              "y_mm_from_top": 89,
-              "x_pt": 109.42,
-              "y_pt_from_bottom": 31.18,
+              "x_mm": 31.7,
+              "y_mm_from_top": 89.4,
+              "x_pt": 89.77,
+              "y_pt_from_bottom": 30.15,
               "font_family": "Karantina",
               "font_weight": "400",
               "font_size_pt": 13.5,
@@ -1494,30 +1540,12 @@
               "role": "roast_level",
               "name": "קלייה",
               "text": "קלייה בינונית",
-              "x_mm": 14.3,
-              "y_mm_from_top": 89,
-              "x_pt": 40.54,
-              "y_pt_from_bottom": 31.18,
+              "x_mm": 9.5,
+              "y_mm_from_top": 89.3,
+              "x_pt": 26.93,
+              "y_pt_from_bottom": 30.33,
               "font_family": "Karantina",
               "font_weight": "400",
-              "font_size_pt": 13.5,
-              "kerning": 30,
-              "letter_spacing_pt": 0.41,
-              "align": "center",
-              "rtl": true,
-              "color": "#111111"
-            },
-            {
-              "id": "06e051f5-2b6a-4a75-96a8-4b8ba0b0c6fa",
-              "role": "process_label",
-              "name": "עיבוד",
-              "text": "עיבוד: חצי שטוף",
-              "x_mm": 50.7,
-              "y_mm_from_top": 94.8,
-              "x_pt": 143.72,
-              "y_pt_from_bottom": 14.74,
-              "font_family": "Karantina",
-              "font_weight": "300",
               "font_size_pt": 13.5,
               "kerning": 30,
               "letter_spacing_pt": 0.41,
@@ -1530,10 +1558,10 @@
               "role": "kosher",
               "name": "כשרות",
               "text": "כשר בהשגחת הרבנות חתם סופר",
-              "x_mm": 20.9,
-              "y_mm_from_top": 94.7,
-              "x_pt": 59.24,
-              "y_pt_from_bottom": 15.02,
+              "x_mm": 53.8,
+              "y_mm_from_top": 95.6,
+              "x_pt": 152.45,
+              "y_pt_from_bottom": 12.36,
               "font_family": "Karantina",
               "font_weight": "300",
               "font_size_pt": 13.5,
@@ -1620,10 +1648,10 @@
               "role": "weight_value",
               "name": "משקל",
               "text": "|",
-              "x_mm": 26.7,
-              "y_mm_from_top": 89.1,
-              "x_pt": 75.72,
-              "y_pt_from_bottom": 30.77,
+              "x_mm": 19.3,
+              "y_mm_from_top": 89.4,
+              "x_pt": 54.65,
+              "y_pt_from_bottom": 30.05,
               "font_family": "Karantina",
               "font_weight": "300",
               "font_size_pt": 14,
@@ -1634,19 +1662,19 @@
               "color": "#111111"
             },
             {
-              "id": "3f2ed713-0553-4588-b795-6b75156e15be",
-              "role": "weight_value",
-              "name": "משקל",
-              "text": "|",
-              "x_mm": 39.9,
-              "y_mm_from_top": 94.8,
-              "x_pt": 113.05,
-              "y_pt_from_bottom": 14.81,
+              "id": "770cb0f9-2220-4513-b62c-1529cdf19242",
+              "role": "tastes",
+              "name": "טעמים",
+              "text": "חד זני 100% ערביקה",
+              "x_mm": 13.2,
+              "y_mm_from_top": 96.1,
+              "x_pt": 37.43,
+              "y_pt_from_bottom": 11.06,
               "font_family": "Karantina",
               "font_weight": "300",
-              "font_size_pt": 14,
-              "kerning": 0,
-              "letter_spacing_pt": 0,
+              "font_size_pt": 13.5,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
               "align": "center",
               "rtl": true,
               "color": "#111111"
@@ -1657,12 +1685,8 @@
               283.46,
               283.46
             ],
-            "print_canvas_size": [
-              274.96,
-              274.96
-            ],
             "draw_background": "drawImage(background, x_pt, y_pt_from_bottom, width=rendered_width_mm*mm, height=rendered_height_mm*mm) and clip/crop to sticker bounds",
-            "draw_text": "draw text at x_pt, y_pt_from_bottom using align, font_size_pt, and kerning; kerning is Illustrator-style tracking, where 30 means 30/1000 of font size"
+            "draw_text": "draw text centered vertically at x_pt, y_pt_from_bottom using align, font_size_pt, and kerning; kerning is Illustrator-style tracking, where 30 means 30/1000 of font size"
           }
         }
       }
@@ -2127,18 +2151,18 @@
       }
     },
     {
-      "id": "7a1db8bb3662474ab200a14785289394",
+      "id": "eb513bc56bfa4c80991fa8133d9928a0",
       "name": "אתיופיה דג׳ימה בינוני כהה",
-      "updated_at": "2026-09-08T13:45:55",
+      "updated_at": "2026-09-08T13:50:49",
       "layout": {
         "purpose": "label_layout_preset",
         "version": 1,
         "name": "אתיופיה דג׳ימה בינוני כהה",
         "editor_state": {
           "source": "grid/final_stickers.con_16.8.26 (1).pdf",
-          "page": 4,
+          "page": 12,
           "originalPdf": "grid/final_stickers.con_16.8.26 (1).pdf",
-          "originalPdfPage": 4,
+          "originalPdfPage": 12,
           "sticker": {
             "w": 100,
             "h": 100
@@ -2322,9 +2346,9 @@
           },
           "source": {
             "file": "grid/final_stickers.con_16.8.26 (1).pdf",
-            "page": 4,
+            "page": 12,
             "original_pdf": "grid/final_stickers.con_16.8.26 (1).pdf",
-            "original_pdf_page": 4
+            "original_pdf_page": 12
           },
           "sticker": {
             "width_mm": 100,
@@ -2559,6 +2583,517 @@
               "font_size_pt": 14,
               "kerning": 0,
               "letter_spacing_pt": 0,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            }
+          ],
+          "reportlab_hint": {
+            "canvas_size": [
+              283.46,
+              283.46
+            ],
+            "draw_background": "drawImage(background, x_pt, y_pt_from_bottom, width=rendered_width_mm*mm, height=rendered_height_mm*mm) and clip/crop to sticker bounds",
+            "draw_text": "draw text centered vertically at x_pt, y_pt_from_bottom using align, font_size_pt, and kerning; kerning is Illustrator-style tracking, where 30 means 30/1000 of font size"
+          }
+        }
+      }
+    },
+    {
+      "id": "d596e350b26d41d39cc778ef046a694b",
+      "name": "אתיופיה דג׳ימה בינוני",
+      "updated_at": "2026-09-08T14:45:13",
+      "layout": {
+        "purpose": "label_layout_preset",
+        "version": 1,
+        "name": "אתיופיה דג׳ימה בינוני",
+        "editor_state": {
+          "source": "grid/final_stickers.con_16.8.26 (1).pdf",
+          "page": 4,
+          "originalPdf": "grid/final_stickers.con_16.8.26 (1).pdf",
+          "originalPdfPage": 4,
+          "sticker": {
+            "w": 100,
+            "h": 100
+          },
+          "printRotation": 0,
+          "weightVariants": {
+            "0.25": {
+              "align": "center",
+              "letterSpacing": 1,
+              "size": 29,
+              "x": 96.5,
+              "y": 78.1
+            },
+            "0.5": {
+              "align": "center",
+              "letterSpacing": 1,
+              "size": 29,
+              "x": 96.4,
+              "y": 77.9
+            }
+          },
+          "background": {
+            "x": -11.7,
+            "y": -11.6,
+            "scale": 1,
+            "pageW": 123.2834848192003,
+            "pageH": 123.2834848192003
+          },
+          "texts": [
+            {
+              "id": "2e198f3c-5f81-4777-bf39-30895eca620a",
+              "color": "#111111",
+              "role": "title",
+              "name": "שם מרכזי",
+              "text": "אתיופיה דג׳ימה",
+              "x": 28.547098214285715,
+              "y": 78.29393601190476,
+              "size": 49,
+              "weight": "300",
+              "align": "center",
+              "kerning": 10
+            },
+            {
+              "id": "23479f7f-b6aa-44df-b60d-ca248dd47cc3",
+              "color": "#111111",
+              "role": "tastes",
+              "name": "טעמים",
+              "text": "חזק, אש, מעושן",
+              "x": 33.09497767857143,
+              "y": 89.35063244047619,
+              "size": 13.5,
+              "weight": "400",
+              "align": "center",
+              "kerning": 30
+            },
+            {
+              "id": "eafa23ed-d7a3-4a13-8e22-9191e79c782d",
+              "color": "#111111",
+              "role": "roast_level",
+              "name": "קלייה",
+              "text": "קלייה בינונית",
+              "x": 10.648586309523811,
+              "y": 89.38318452380952,
+              "size": 13.5,
+              "weight": "400",
+              "align": "center",
+              "kerning": 30
+            },
+            {
+              "id": "06e051f5-2b6a-4a75-96a8-4b8ba0b0c6fa",
+              "color": "#111111",
+              "role": "process_label",
+              "name": "עיבוד",
+              "text": "עיבוד: חצי שטוף",
+              "x": 39.07239583333334,
+              "y": 96.10580357142857,
+              "size": 13.5,
+              "weight": "300",
+              "align": "center",
+              "kerning": 30
+            },
+            {
+              "id": "94636866-7ef1-44b2-ab38-93d3bdfece5b",
+              "color": "#111111",
+              "role": "kosher",
+              "name": "כשרות",
+              "text": "כשרות חתם סופר",
+              "x": 61.25249255952381,
+              "y": 95.96023065476192,
+              "size": 13.5,
+              "weight": "300",
+              "align": "center",
+              "kerning": 30
+            },
+            {
+              "id": "c722b0cd-0126-464f-8fd4-727d83001265",
+              "color": "#111111",
+              "role": "weight_value",
+              "name": "משקל",
+              "text": "1",
+              "x": 95.61551339285714,
+              "y": 77.60892857142856,
+              "size": 49,
+              "weight": "300",
+              "align": "center",
+              "kerning": 0
+            },
+            {
+              "id": "a88176c1-3d14-4688-89c8-5523da8e0406",
+              "color": "#111111",
+              "role": "weight_unit",
+              "name": "ק״ג",
+              "text": "ק״ג",
+              "x": 92.14761904761905,
+              "y": 81.9860119047619,
+              "size": 13.5,
+              "weight": "300",
+              "align": "center",
+              "kerning": 30
+            },
+            {
+              "id": "b31fdacf-90b3-41a7-9b8e-cccfffce4eb8",
+              "color": "#111111",
+              "role": "roast_date",
+              "name": "תאריך",
+              "text": "08/09/2026",
+              "x": 86.6,
+              "y": 94.4,
+              "size": 13.5,
+              "weight": "400",
+              "align": "center",
+              "kerning": 30
+            },
+            {
+              "id": "c107e772-e1b7-4963-8b9a-20796a597357",
+              "color": "#111111",
+              "role": "roast_date",
+              "name": "תאריך",
+              "text": "",
+              "x": 85,
+              "y": 42,
+              "size": 13,
+              "weight": "400",
+              "align": "center",
+              "kerning": 30
+            },
+            {
+              "id": "f3c96025-6834-47d5-bdca-d58cab495223",
+              "color": "#111111",
+              "role": "weight_value",
+              "name": "משקל",
+              "text": "|",
+              "x": 20.456622023809523,
+              "y": 89.28712797619048,
+              "size": 14,
+              "weight": "300",
+              "align": "center",
+              "kerning": 0
+            },
+            {
+              "id": "3f2ed713-0553-4588-b795-6b75156e15be",
+              "color": "#111111",
+              "role": "weight_value",
+              "name": "משקל",
+              "text": "|",
+              "x": 50.30680803571429,
+              "y": 96.07269345238096,
+              "size": 14,
+              "weight": "300",
+              "align": "center",
+              "kerning": 0
+            },
+            {
+              "id": "9b99074e-b914-4ee4-b2bf-f9d3fc7ef53e",
+              "color": "#111111",
+              "kerning": 0,
+              "role": "separator",
+              "name": "מפריד",
+              "text": "|",
+              "x": 27.8,
+              "y": 96.2,
+              "size": 13.5,
+              "weight": "300",
+              "align": "center"
+            },
+            {
+              "id": "e3d3e34d-0852-4eb1-8909-c6b168cf19ae",
+              "color": "#111111",
+              "kerning": 30,
+              "role": "tastes",
+              "name": "טעמים",
+              "text": "חד זני 100% ערביקה",
+              "x": 14,
+              "y": 96.1,
+              "size": 13.5,
+              "weight": "300",
+              "align": "center"
+            }
+          ]
+        },
+        "parameters": {
+          "purpose": "label_layout_parameters",
+          "units": {
+            "editor_positions": "millimeters from top-left",
+            "reportlab_positions": "points from bottom-left",
+            "font_sizes": "points"
+          },
+          "source": {
+            "file": "grid/final_stickers.con_16.8.26 (1).pdf",
+            "page": 4,
+            "original_pdf": "grid/final_stickers.con_16.8.26 (1).pdf",
+            "original_pdf_page": 4
+          },
+          "sticker": {
+            "width_mm": 100,
+            "height_mm": 100,
+            "width_pt": 283.46,
+            "height_pt": 283.46
+          },
+          "print_size": {
+            "rotation": 0,
+            "note": "Used only for text-only PDF page orientation. Print size and coordinates use the sticker size."
+          },
+          "weight_variants": {
+            "0.5": {
+              "align": "center",
+              "letterSpacing": 1,
+              "size": 29,
+              "x": 96.4,
+              "y": 77.9
+            },
+            "0.25": {
+              "align": "center",
+              "letterSpacing": 1,
+              "size": 29,
+              "x": 96.5,
+              "y": 78.1
+            },
+            "note": "Optional manual x/y/size overrides for fractional weight labels."
+          },
+          "background_crop": {
+            "x_mm": -11.7,
+            "y_mm_from_top": -11.6,
+            "x_pt": -33.17,
+            "y_pt_from_bottom": -33.12,
+            "scale": 1,
+            "source_width_mm": 123.3,
+            "source_height_mm": 123.3,
+            "rendered_width_mm": 123.3,
+            "rendered_height_mm": 123.3
+          },
+          "text_fields": [
+            {
+              "id": "2e198f3c-5f81-4777-bf39-30895eca620a",
+              "role": "title",
+              "name": "שם מרכזי",
+              "text": "אתיופיה דג׳ימה",
+              "x_mm": 28.5,
+              "y_mm_from_top": 78.3,
+              "x_pt": 80.92,
+              "y_pt_from_bottom": 61.53,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 49,
+              "kerning": 10,
+              "letter_spacing_pt": 0.49,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "23479f7f-b6aa-44df-b60d-ca248dd47cc3",
+              "role": "tastes",
+              "name": "טעמים",
+              "text": "חזק, אש, מעושן",
+              "x_mm": 33.1,
+              "y_mm_from_top": 89.4,
+              "x_pt": 93.81,
+              "y_pt_from_bottom": 30.19,
+              "font_family": "Karantina",
+              "font_weight": "400",
+              "font_size_pt": 13.5,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "eafa23ed-d7a3-4a13-8e22-9191e79c782d",
+              "role": "roast_level",
+              "name": "קלייה",
+              "text": "קלייה בינונית",
+              "x_mm": 10.6,
+              "y_mm_from_top": 89.4,
+              "x_pt": 30.18,
+              "y_pt_from_bottom": 30.09,
+              "font_family": "Karantina",
+              "font_weight": "400",
+              "font_size_pt": 13.5,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "06e051f5-2b6a-4a75-96a8-4b8ba0b0c6fa",
+              "role": "process_label",
+              "name": "עיבוד",
+              "text": "עיבוד: חצי שטוף",
+              "x_mm": 39.1,
+              "y_mm_from_top": 96.1,
+              "x_pt": 110.76,
+              "y_pt_from_bottom": 11.04,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 13.5,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "94636866-7ef1-44b2-ab38-93d3bdfece5b",
+              "role": "kosher",
+              "name": "כשרות",
+              "text": "כשרות חתם סופר",
+              "x_mm": 61.3,
+              "y_mm_from_top": 96,
+              "x_pt": 173.63,
+              "y_pt_from_bottom": 11.45,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 13.5,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "c722b0cd-0126-464f-8fd4-727d83001265",
+              "role": "weight_value",
+              "name": "משקל",
+              "text": "1",
+              "x_mm": 95.6,
+              "y_mm_from_top": 77.6,
+              "x_pt": 271.04,
+              "y_pt_from_bottom": 63.47,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 49,
+              "kerning": 0,
+              "letter_spacing_pt": 0,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "a88176c1-3d14-4688-89c8-5523da8e0406",
+              "role": "weight_unit",
+              "name": "ק״ג",
+              "text": "ק״ג",
+              "x_mm": 92.1,
+              "y_mm_from_top": 82,
+              "x_pt": 261.21,
+              "y_pt_from_bottom": 51.06,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 13.5,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "b31fdacf-90b3-41a7-9b8e-cccfffce4eb8",
+              "role": "roast_date",
+              "name": "תאריך",
+              "text": "08/09/2026",
+              "x_mm": 86.6,
+              "y_mm_from_top": 94.4,
+              "x_pt": 245.48,
+              "y_pt_from_bottom": 15.87,
+              "font_family": "Karantina",
+              "font_weight": "400",
+              "font_size_pt": 13.5,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "c107e772-e1b7-4963-8b9a-20796a597357",
+              "role": "roast_date",
+              "name": "תאריך",
+              "text": "",
+              "x_mm": 85,
+              "y_mm_from_top": 42,
+              "x_pt": 240.94,
+              "y_pt_from_bottom": 164.41,
+              "font_family": "Karantina",
+              "font_weight": "400",
+              "font_size_pt": 13,
+              "kerning": 30,
+              "letter_spacing_pt": 0.39,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "f3c96025-6834-47d5-bdca-d58cab495223",
+              "role": "weight_value",
+              "name": "משקל",
+              "text": "|",
+              "x_mm": 20.5,
+              "y_mm_from_top": 89.3,
+              "x_pt": 57.99,
+              "y_pt_from_bottom": 30.37,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 14,
+              "kerning": 0,
+              "letter_spacing_pt": 0,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "3f2ed713-0553-4588-b795-6b75156e15be",
+              "role": "weight_value",
+              "name": "משקל",
+              "text": "|",
+              "x_mm": 50.3,
+              "y_mm_from_top": 96.1,
+              "x_pt": 142.6,
+              "y_pt_from_bottom": 11.13,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 14,
+              "kerning": 0,
+              "letter_spacing_pt": 0,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "9b99074e-b914-4ee4-b2bf-f9d3fc7ef53e",
+              "role": "separator",
+              "name": "מפריד",
+              "text": "|",
+              "x_mm": 27.8,
+              "y_mm_from_top": 96.2,
+              "x_pt": 78.8,
+              "y_pt_from_bottom": 10.77,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 13.5,
+              "kerning": 0,
+              "letter_spacing_pt": 0,
+              "align": "center",
+              "rtl": true,
+              "color": "#111111"
+            },
+            {
+              "id": "e3d3e34d-0852-4eb1-8909-c6b168cf19ae",
+              "role": "tastes",
+              "name": "טעמים",
+              "text": "חד זני 100% ערביקה",
+              "x_mm": 14,
+              "y_mm_from_top": 96.1,
+              "x_pt": 39.69,
+              "y_pt_from_bottom": 11.06,
+              "font_family": "Karantina",
+              "font_weight": "300",
+              "font_size_pt": 13.5,
+              "kerning": 30,
+              "letter_spacing_pt": 0.41,
               "align": "center",
               "rtl": true,
               "color": "#111111"

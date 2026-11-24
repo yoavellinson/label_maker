@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - grid
+      - worker-ui
     tags:
       - "v*"
 
@@ -31,6 +32,10 @@ jobs:
           if (!(Test-Path "grid\final_stickers.con_16.8.26 (1).pdf")) { throw "Missing grid\final_stickers.con_16.8.26 (1).pdf" }
           if (!(Test-Path "grid\Master_stickers_guide.pdf")) { throw "Missing grid\Master_stickers_guide.pdf" }
           if (!(Test-Path "grid\layout_presets.json")) { throw "Missing grid\layout_presets.json" }
+          if (!(Test-Path "web\index.html")) { throw "Missing web\index.html" }
+
+      - name: Run tests
+        run: python -m unittest discover tests -v
 
       - name: Build standalone app
         run: python -m PyInstaller --clean --noconfirm label_maker.spec

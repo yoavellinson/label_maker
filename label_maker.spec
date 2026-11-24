@@ -13,6 +13,7 @@ a = Analysis(
     datas=[
         ("fonts", "fonts"),
         ("grid", "grid"),
+        ("web", "web"),
         ("blends.csv", "."),
         ("textures", "textures"),
     ],

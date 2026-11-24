@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מדבקות קפה</title>
+<style>
+  @font-face { font-family: "Heebo"; src: url("/font/heebo.ttf") format("truetype"); font-weight: 100 900; }
+  @font-face { font-family: "Karantina"; src: url("/font/karantina-regular.ttf") format("truetype"); }
+
+  :root {
+    --bg: #f4efe7;
+    --panel: #fffdf9;
+    --ink: #1f1714;
+    --muted: #7a6a62;
+    --line: #e2d6ca;
+    --accent: #1f5b43;
+    --accent-soft: #e6f1ec;
+    --warn: #9a5a0c;
+    --warn-soft: #fff1dc;
+    --danger: #b3392b;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 "Heebo", Arial, sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  .app { display: grid; grid-template-columns: 290px minmax(420px, 1fr) 380px; gap: 16px; height: 100vh; padding: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); min-height: 0; display: flex; flex-direction: column; }
+  .panel-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+  .panel-head h2 { margin: 0; font-size: 17px; }
+  .panel-body { padding: 14px 16px; overflow: auto; flex: 1; }
+
+  /* coffee list */
+  .search { width: 100%; margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+  .products { list-style: none; margin: 0; padding: 8px; overflow: auto; flex: 1; }
+  .product { width: 100%; display: grid; grid-template-columns: 10px 1fr; gap: 10px; align-items: center; text-align: right; padding: 10px 12px; border: 1px solid transparent; border-radius: 8px; background: none; margin-bottom: 4px; }
+  .product:hover { background: #f6f0e8; }
+  .product.active { background: var(--accent-soft); border-color: var(--accent); }
+  .swatch { width: 10px; height: 34px; border-radius: 4px; }
+  .product-title { font-weight: 700; display: block; }
+  .product-sub { color: var(--muted); font-size: 13px; display: block; }
+  .list-foot { padding: 10px; border-top: 1px solid var(--line); }
+  .empty { color: var(--muted); padding: 16px; text-align: center; }
+
+  /* preview column */
+  .center { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .stage { flex: 1; min-height: 0; display: grid; place-items: center; background: #e7ded3; border-radius: var(--radius); border: 1px solid var(--line); padding: 16px; overflow: hidden; }
+  .sticker { position: relative; width: min(100%, calc(100vh - 290px)); aspect-ratio: 1; box-shadow: 0 14px 40px rgba(40, 25, 15, .25); background: white; }
+  .sticker img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .sticker.loading #textImg { opacity: .6; }
+  .notes { display: flex; flex-wrap: wrap; gap: 8px; min-height: 0; }
+  .note { padding: 6px 10px; border-radius: 6px; font-size: 13px; background: var(--warn-soft); color: var(--warn); }
+  .note.error { background: #fde8e5; color: var(--danger); }
+
+  .daily { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; grid-template-columns: auto auto auto 1fr; gap: 18px; align-items: end; }
+  .group-label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: white; }
+  .seg button { border: 0; background: none; padding: 10px 16px; min-width: 54px; font-size: 17px; }
+  .seg button + button { border-right: 1px solid var(--line); }
+  .seg button.active { background: var(--accent); color: white; font-weight: 700; }
+  .date-row { display: flex; gap: 6px; }
+  .date-row input { width: 130px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; text-align: center; direction: ltr; font-size: 16px; }
+  .copies input { width: 56px; text-align: center; border: 0; font-size: 17px; padding: 10px 0; }
+  .print { justify-self: stretch; min-height: 56px; border: 0; border-radius: 10px; background: #141414; color: white; font-size: 21px; font-weight: 800; }
+  .print:hover { background: #000; }
+  .print:disabled { opacity: .5; cursor: wait; }
+  .preprinted { font-size: 13px; color: var(--muted); padding: 10px 0; max-width: 150px; }
+
+  /* editor */
+  .field { display: block; margin-bottom: 12px; }
+  .field > span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; }
+  .field input, .field select { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+  .field input:focus, .field select:focus, .search:focus, .date-row input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .designs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 14px; }
+  .design { border: 2px solid var(--line); border-radius: 8px; background: white; padding: 8px 4px 6px; font-size: 13px; line-height: 1.2; }
+  .design i { display: block; height: 8px; border-radius: 3px; margin-bottom: 6px; }
+  .design.active { border-color: var(--accent); font-weight: 700; }
+  .designs-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+
+  .savebar { border-top: 1px solid var(--line); padding: 12px 16px; display: grid; gap: 8px; }
+  .status { font-size: 13px; padding: 7px 10px; border-radius: 6px; background: #f3eee7; color: var(--muted); }
+  .status.dirty { background: var(--warn-soft); color: var(--warn); font-weight: 700; }
+  .status.clean { background: var(--accent-soft); color: var(--accent); }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--accent); background: var(--accent); color: white; padding: 9px 14px; border-radius: 8px; font-weight: 600; }
+  .btn.secondary { background: white; color: var(--accent); }
+  .btn.ghost { background: none; border-color: transparent; color: var(--muted); font-weight: 400; }
+  .btn.danger { background: white; color: var(--danger); border-color: #e5b9b2; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .wide { width: 100%; }
+
+  /* designer */
+  .editor-head { display: flex; align-items: center; justify-content: space-between; }
+  .btn.small { padding: 6px 12px; font-size: 14px; }
+  #toggleDesigner[aria-pressed="true"] { background: var(--accent); color: white; }
+  .designer h3 { font-size: 14px; margin: 16px 0 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .designer h3:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+  .dgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .dgrid label { font-size: 12px; color: var(--muted); }
+  .dgrid input, .dgrid select { width: 100%; padding: 6px 7px; border: 1px solid var(--line); border-radius: 6px; background: white; direction: ltr; }
+  .dgrid .full { grid-column: 1 / -1; }
+  .dgrid .full input { direction: rtl; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1d1d1d; color: white; padding: 10px 18px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 10; }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--danger); }
+
+  @media (max-width: 1150px) {
+    .app { grid-template-columns: 240px 1fr; height: auto; }
+    .editor { grid-column: 1 / -1; }
+    .sticker { width: min(100%, 560px); }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+  <!-- 1. coffee list -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>בחירת קפה</h2>
+      <input class="search" id="search" type="search" placeholder="חיפוש לפי שם, קלייה או טעם…">
+    </div>
+    <ul class="products" id="productList"></ul>
+    <div class="list-foot">
+      <button class="btn secondary wide" id="newProduct">+ קפה חדש</button>
+    </div>
+  </section>
+
+  <!-- 2. preview + print -->
+  <section class="center">
+    <div class="stage">
+      <div class="sticker" id="sticker">
+        <img id="bgImg" alt="">
+        <img id="textImg" alt="">
+      </div>
+    </div>
+    <div class="notes" id="notes"></div>
+    <div class="daily">
+      <div>
+        <span class="group-label">תאריך קלייה</span>
+        <div class="date-row">
+          <input id="date" type="text" inputmode="numeric" placeholder="ריק = בכתב יד">
+          <button class="btn secondary" id="today">היום</button>
+        </div>
+      </div>
+      <div id="weightGroup">
+        <span class="group-label">משקל</span>
+        <div class="seg" id="weightSeg">
+          <button data-weight="1">1</button>
+          <button data-weight="0.5">½</button>
+          <button data-weight="0.25">¼</button>
+        </div>
+      </div>
+      <div class="preprinted" id="weightPreprinted" hidden>1 ק״ג מודפס מראש על מדבקות ספיישלטי</div>
+      <div>
+        <span class="group-label">עותקים</span>
+        <div class="seg copies">
+          <button id="copiesMinus" aria-label="פחות">−</button>
+          <input id="copies" type="number" min="1" max="500" value="1">
+          <button id="copiesPlus" aria-label="יותר">+</button>
+        </div>
+      </div>
+      <button class="print" id="print">הדפסה</button>
+    </div>
+  </section>
+
+  <!-- 3. coffee details -->
+  <section class="panel editor">
+    <div class="panel-head editor-head"><h2 id="editorTitle">פרטי הקפה</h2><button class="btn secondary small" id="toggleDesigner" aria-pressed="false">⚙ מצב מעצב</button></div>
+    <div class="panel-body" id="editorBody">
+      <div class="designs-label"><span>עיצוב המדבקה</span></div>
+      <div class="designs" id="designs"></div>
+
+      <label class="field"><span>שם הקפה</span><input id="f_title" autocomplete="off"></label>
+      <label class="field"><span>טעמים</span><input id="f_tastes" autocomplete="off" placeholder="למשל: שוקולד, קרמל, אגוזים"></label>
+      <label class="field"><span>דרגת קלייה</span><input id="f_roast" list="roastList" autocomplete="off"></label>
+      <label class="field"><span>סוג פולים</span>
+        <select id="f_bean">
+          <option value="single:ערביקה">חד זני - ערביקה</option>
+          <option value="single:רובוסטה">חד זני - רובוסטה</option>
+          <option value="blend:30">תערובת 30% ערביקה</option>
+          <option value="blend:50">תערובת 50% ערביקה</option>
+          <option value="blend:70">תערובת 70% ערביקה</option>
+          <option value="blend:100">תערובת 100% ערביקה</option>
+          <option value="">ללא</option>
+        </select>
+      </label>
+      <label class="field"><span>עיבוד <small>(לא חובה)</small></span><input id="f_process" list="processList" autocomplete="off" placeholder="ריק = לא יודפס">
+      </label>
+      <label class="field"><span>כשרות</span><input id="f_kosher" list="kosherList" autocomplete="off"></label>
+      <label class="field" id="scoreField"><span>ציון ספיישלטי</span><input id="f_score" inputmode="decimal" autocomplete="off" placeholder="למשל 85.4"></label>
+
+      <div class="designer" id="designer" hidden></div>
+    </div>
+    <div class="savebar">
+      <div class="status" id="saveStatus"></div>
+      <div class="btn-row">
+        <button class="btn" id="save">שמירה</button>
+        <button class="btn secondary" id="saveAsNew">שמירה כקפה חדש</button>
+        <button class="btn ghost" id="revert">ביטול שינויים</button>
+        <button class="btn danger" id="delete" style="margin-inline-start:auto">מחיקה</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<datalist id="roastList">
+  <option value="קלייה בהירה"><option value="קלייה בינונית בהירה"><option value="קלייה בינונית">
+  <option value="קלייה בינונית כהה"><option value="קלייה כהה">
+</datalist>
+<datalist id="processList">
+  <option value="שטוף"><option value="חצי שטוף"><option value="טבעי"><option value="הוני"><option value="אנאירובי">
+</datalist>
+<datalist id="kosherList">
+  <option value="כשרות חתם סופר">
+</datalist>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const FIELDS = ["title", "tastes", "roast", "bean", "process", "kosher", "score"];
+const STORAGE_KEY = "label-maker-v3";
+
+let data = null;          // /api/state
+let current = null;       // product being edited (may be unsaved)
+let savedCopy = null;     // JSON of the stored version, for dirty detection
+let daily = {date: todayText(), weight: "1"};
+let designer = null;      // {layout, calibration} drafts while designer mode is on
+
+// ---------- helpers ----------
+function todayText() {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+function productKey(p) { return JSON.stringify(Object.fromEntries([...FIELDS, "page"].map((k) => [k, String(p?.[k] ?? "")]))); }
+function isDirty() { return productKey(current) !== savedCopy; }
+function pageInfo(page) { return data.pages[String(page)] || {}; }
+function toast(text, error = false) {
+  const el = $("#toast");
+  el.textContent = text;
+  el.className = `toast show${error ? " error" : ""}`;
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => (el.className = "toast"), 2600);
+}
+async function api(url, options = {}) {
+  const response = await fetch(url, {headers: {"Content-Type": "application/json"}, ...options});
+  const type = response.headers.get("Content-Type") || "";
+  const payload = type.includes("json") ? await response.json() : await response.blob();
+  if (!response.ok) throw new Error(payload.error || "שגיאה");
+  return payload;
+}
+function persist() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    productId: current?.id || "",
+    draft: current && isDirty() ? current : null,
+    weight: daily.weight,
+    copies: $("#copies").value,
+  }));
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c])); }
+
+// ---------- product list ----------
+function renderList() {
+  const q = $("#search").value.trim();
+  const list = $("#productList");
+  const items = data.products.filter((p) => !q || [p.title, p.roast, p.tastes, pageInfo(p.page).label].join(" ").includes(q));
+  list.innerHTML = items.length ? "" : `<li class="empty">${q ? "לא נמצא קפה" : "אין עדיין קפה שמור"}</li>`;
+  for (const p of items) {
+    const li = document.createElement("li");
+    const info = pageInfo(p.page);
+    li.innerHTML = `<button class="product${p.id === current?.id ? " active" : ""}">
+      <span class="swatch" style="background:${info.color}"></span>
+      <span><span class="product-title">${escapeHtml(p.title)}</span>
+      <span class="product-sub">${escapeHtml([p.roast, info.label].filter(Boolean).join(" · "))}</span></span></button>`;
+    li.firstElementChild.addEventListener("click", () => selectProduct(p.id));
+    list.appendChild(li);
+  }
+}
+
+function confirmDiscard() {
+  return !current || !isDirty() || confirm("יש שינויים שלא נשמרו בקפה הנוכחי. להמשיך בלי לשמור?");
+}
+
+function selectProduct(id, {force = false} = {}) {
+  if (!force && !confirmDiscard()) return;
+  const stored = data.products.find((p) => p.id === id);
+  if (!stored) return;
+  current = {...stored};
+  savedCopy = productKey(stored);
+  fillForm();
+}
+
+function newProduct() {
+  if (!confirmDiscard()) return;
+  current = {...data.empty_product, page: current?.page || data.empty_product.page};
+  savedCopy = null;
+  fillForm();
+  $("#f_title").focus();
+}
+
+// ---------- editor ----------
+function renderDesigns() {
+  const wrap = $("#designs");
+  wrap.innerHTML = "";
+  for (const [page, info] of Object.entries(data.pages)) {
+    const b = document.createElement("button");
+    b.className = `design${Number(page) === Number(current.page) ? " active" : ""}`;
+    b.innerHTML = `<i style="background:${info.color}${info.specialty ? ";box-shadow:inset -14px 0 0 #f2552c" : ""}"></i>${info.label}`;
+    b.addEventListener("click", () => { current.page = Number(page); onEdit(); renderDesigns(); });
+    wrap.appendChild(b);
+  }
+}
+
+function fillForm() {
+  for (const k of FIELDS) $(`#f_${k}`).value = current[k] ?? "";
+  renderDesigns();
+  onEdit();
+}
+
+function onEdit() {
+  for (const k of FIELDS) current[k] = $(`#f_${k}`).value;
+  const specialty = !!pageInfo(current.page).specialty;
+  $("#scoreField").hidden = !specialty;
+  $("#weightGroup").hidden = specialty;
+  $("#weightPreprinted").hidden = !specialty;
+  updateSaveBar();
+  renderList();
+  schedulePreview();
+  persist();
+}
+
+function updateSaveBar() {
+  const dirty = isDirty();
+  const isNew = !current.id;
+  const status = $("#saveStatus");
+  $("#editorTitle").textContent = isNew ? "קפה חדש" : "פרטי הקפה";
+  if (isNew) {
+    status.className = "status dirty";
+    status.textContent = "קפה חדש – עדיין לא נשמר ברשימה";
+  } else if (dirty) {
+    status.className = "status dirty";
+    status.textContent = "יש שינויים שלא נשמרו (אפשר להדפיס גם בלי לשמור)";
+  } else {
+    status.className = "status clean";
+    status.textContent = "שמור ✓";
+  }
+  $("#save").disabled = !isNew && !dirty;
+  $("#saveAsNew").hidden = isNew;
+  $("#revert").disabled = isNew || !dirty;
+  $("#delete").hidden = isNew;
+}
+
+async function saveProduct(asNew = false) {
+  if (!current.title.trim()) { toast("צריך שם קפה לפני שמירה", true); $("#f_title").focus(); return; }
+  const body = {...current};
+  if (asNew) delete body.id;
+  try {
+    const {product} = await api("/api/products", {method: "POST", body: JSON.stringify({product: body})});
+    const index = data.products.findIndex((p) => p.id === product.id);
+    if (index >= 0) data.products[index] = product; else data.products.push(product);
+    data.products.sort((a, b) => (a.title + a.roast).localeCompare(b.title + b.roast, "he"));
+    current = {...product};
+    savedCopy = productKey(product);
+    fillForm();
+    toast(asNew ? "נשמר כקפה חדש" : "נשמר");
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deleteProduct() {
+  if (!current.id || !confirm(`למחוק את "${current.title}" מהרשימה?`)) return;
+  try {
+    await api(`/api/products/${encodeURIComponent(current.id)}`, {method: "DELETE"});
+    data.products = data.products.filter((p) => p.id !== current.id);
+    current.id = undefined;
+    savedCopy = null;
+    if (data.products[0]) selectProduct(data.products[0].id, {force: true}); else { current = {...data.empty_product}; fillForm(); }
+    toast("נמחק");
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---------- daily values ----------
+function setWeight(value) {
+  daily.weight = value;
+  for (const b of document.querySelectorAll("[data-weight]")) b.classList.toggle("active", b.dataset.weight === value);
+  schedulePreview();
+  persist();
+}
+
+// ---------- preview ----------
+let previewTimer = null;
+let previewSeq = 0;
+function settingsPayload() { return designer ? {layout: designer.layout, calibration: designer.calibration} : {}; }
+function schedulePreview() { clearTimeout(previewTimer); previewTimer = setTimeout(updatePreview, 90); }
+
+async function updatePreview() {
+  const seq = ++previewSeq;
+  const cal = designer ? designer.calibration : data.calibration;
+  const bgQuery = designer ? `?bg_x=${cal.bg_x}&bg_y=${cal.bg_y}&bg_scale=${cal.bg_scale}&sticker_w=${cal.sticker_w}&sticker_h=${cal.sticker_h}` : "";
+  const bgSrc = `/api/background/${current.page}.png${bgQuery}`;
+  if ($("#bgImg").getAttribute("src") !== bgSrc) $("#bgImg").src = bgSrc;
+  $("#sticker").style.aspectRatio = `${cal.sticker_w} / ${cal.sticker_h}`;
+  $("#sticker").classList.add("loading");
+  try {
+    const result = await api("/api/preview", {method: "POST", body: JSON.stringify({product: current, daily, ...settingsPayload()})});
+    if (seq !== previewSeq) return;
+    $("#textImg").src = result.image;
+    renderNotes(result);
+  } catch (e) {
+    if (seq === previewSeq) renderNotes({error: e.message});
+  } finally {
+    if (seq === previewSeq) $("#sticker").classList.remove("loading");
+  }
+}
+
+function renderNotes(result) {
+  const notes = [];
+  if (result.error) notes.push(`<span class="note error">${escapeHtml(result.error)}</span>`);
+  const shrunk = (result.shrunk || []).filter((r) => !(result.overflow || []).includes(r));
+  if (shrunk.length) notes.push(`<span class="note">טקסט ארוך – הוקטן אוטומטית: ${shrunk.join(", ")}</span>`);
+  if ((result.overflow || []).length) notes.push(`<span class="note error">ארוך מדי ולא נכנס במדבקה: ${result.overflow.join(", ")} – כדאי לקצר</span>`);
+  $("#notes").innerHTML = notes.join("");
+}
+
+// ---------- print ----------
+async function printLabel({withBackground = false, download = false} = {}) {
+  const copies = Math.max(1, Math.min(500, Number($("#copies").value) || 1));
+  $("#print").disabled = true;
+  try {
+    const blob = await api("/api/print.pdf", {method: "POST", body: JSON.stringify({
+      product: current, daily, copies: withBackground ? 1 : copies, with_background: withBackground, ...settingsPayload(),
+    })});
+    const url = URL.createObjectURL(blob);
+    if (download) {
+      const a = document.createElement("a");
+      a.href = url; a.download = withBackground ? "label-with-background.pdf" : "label.pdf"; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      return;
+    }
+    const frame = document.createElement("iframe");
+    frame.style.cssText = "position:fixed;width:0;height:0;border:0;right:0;bottom:0";
+    frame.src = url;
+    frame.onload = () => { frame.contentWindow.focus(); frame.contentWindow.print(); };
+    document.body.appendChild(frame);
+    setTimeout(() => { frame.remove(); URL.revokeObjectURL(url); }, 120000);
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    $("#print").disabled = false;
+  }
+}
+
+// ---------- designer mode ----------
+const D_WEIGHTS = `<option value="300">דק</option><option value="400">רגיל</option><option value="700">מודגש</option>`;
+const DESIGNER_SECTIONS = [
+  ["מדבקה ורקע", [
+    ["calibration.sticker_w", "רוחב מ״מ"], ["calibration.sticker_h", "גובה מ״מ"], ["calibration.rotation", "סיבוב הדפסה", "rotation"],
+    ["calibration.bg_x", "רקע X"], ["calibration.bg_y", "רקע Y"], ["calibration.bg_scale", "זום רקע", "", 0.005],
+  ]],
+  ["עמודת הטקסט", [
+    ["layout.margin_left", "שוליים משמאל"], ["layout.text_right", "גבול ימני"], ["layout.separator.gap", "רווח ליד |"],
+    ["layout.row_min_size", "גודל מינימלי בשורה"], ["layout.separator.weight", "עובי |", "weight"],
+  ]],
+  ["שם הקפה", [
+    ["layout.title.y", "Y"], ["layout.title.size", "גודל"], ["layout.title.kerning", "קרנינג", "", 1],
+    ["layout.title.weight", "עובי", "weight"], ["layout.title.min_size", "גודל מינימלי"],
+  ]],
+  ["שורה עליונה", [
+    ["layout.rows.0.items", "סדר משמאל לימין", "items"],
+    ["layout.rows.0.y", "Y"], ["layout.rows.0.size", "גודל"], ["layout.rows.0.kerning", "קרנינג", "", 1], ["layout.rows.0.weight", "עובי", "weight"],
+  ]],
+  ["שורה תחתונה", [
+    ["layout.rows.1.items", "סדר משמאל לימין", "items"],
+    ["layout.rows.1.y", "Y"], ["layout.rows.1.size", "גודל"], ["layout.rows.1.kerning", "קרנינג", "", 1], ["layout.rows.1.weight", "עובי", "weight"],
+  ]],
+  ["משקל", [
+    ["layout.weight.x", "1 · X"], ["layout.weight.y", "1 · Y"], ["layout.weight.size", "1 · גודל"],
+    ["layout.weight_fraction.x", "½¼ · X"], ["layout.weight_fraction.y", "½¼ · Y"], ["layout.weight_fraction.size", "½¼ · גודל"],
+    ["layout.weight_unit.x", "ק״ג · X"], ["layout.weight_unit.y", "ק״ג · Y"], ["layout.weight_unit.size", "ק״ג · גודל"],
+  ]],
+  ["תאריך וציון", [
+    ["layout.date.x", "תאריך · X (מרכז)"], ["layout.date.y", "תאריך · Y"], ["layout.date.size", "תאריך · גודל"],
+    ["layout.score.x", "ציון · X"], ["layout.score.y", "ציון · Y"], ["layout.score.size", "ציון · גודל"],
+  ]],
+];
+
+function getPath(obj, path) { return path.split(".").reduce((o, k) => (o == null ? o : o[k]), obj); }
+function setPath(obj, path, value) {
+  const keys = path.split(".");
+  const last = keys.pop();
+  keys.reduce((o, k) => o[k], obj)[last] = value;
+}
+function itemsToText(items) { return (items || []).map((k) => data.row_items[k] || k).join(" | "); }
+function textToItems(text) {
+  const reverse = Object.fromEntries(Object.entries(data.row_items).map(([k, v]) => [v, k]));
+  return text.split("|").map((s) => reverse[s.trim()]).filter(Boolean);
+}
+
+function renderDesigner() {
+  const root = $("#designer");
+  let html = "";
+  for (const [title, inputs] of DESIGNER_SECTIONS) {
+    html += `<h3>${title}</h3><div class="dgrid">`;
+    for (const [path, label, kind, step] of inputs) {
+      const value = getPath(designer, path);
+      if (kind === "weight") html += `<label>${label}<select data-path="${path}" data-kind="number">${D_WEIGHTS}</select></label>`;
+      else if (kind === "rotation") html += `<label>${label}<select data-path="${path}" data-kind="number"><option value="0">0°</option><option value="90">90°</option><option value="-90">-90°</option><option value="180">180°</option></select></label>`;
+      else if (kind === "items") html += `<label class="full">${label}<input data-path="${path}" data-kind="items" value="${escapeHtml(itemsToText(value))}"></label>`;
+      else html += `<label>${label}<input type="number" step="${step || 0.1}" data-path="${path}" data-kind="number" value="${value}"></label>`;
+    }
+    html += `</div>`;
+  }
+  html += `<p class="hint">מילים לסדר השורות: ${Object.values(data.row_items).join(", ")}. התצוגה מתעדכנת מיד; השינויים נשמרים רק בלחיצה על "שמירת הגדרות".</p>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn" id="dSave">שמירת הגדרות</button>
+      <button class="btn secondary" id="dPdf">PDF עם רקע (בדיקה)</button>
+      <button class="btn secondary" id="dTextPdf">הורדת PDF טקסט</button>
+      <button class="btn ghost" id="dDefaults">ברירת מחדל</button>
+      <button class="btn ghost" id="dFolder">תיקיית נתונים</button>
+    </div>`;
+  root.innerHTML = html;
+  for (const el of root.querySelectorAll("select[data-path]")) el.value = String(getPath(designer, el.dataset.path));
+  for (const el of root.querySelectorAll("[data-path]")) {
+    el.addEventListener("input", () => {
+      const value = el.dataset.kind === "items" ? textToItems(el.value) : Number(el.value);
+      if (el.dataset.kind === "number" && !Number.isFinite(value)) return;
+      setPath(designer, el.dataset.path, value);
+      schedulePreview();
+    });
+  }
+  $("#dSave").addEventListener("click", async () => {
+    try {
+      const saved = await api("/api/settings", {method: "POST", body: JSON.stringify(designer)});
+      data.layout = saved.layout; data.calibration = saved.calibration;
+      toast("ההגדרות נשמרו");
+    } catch (e) { toast(e.message, true); }
+  });
+  $("#dPdf").addEventListener("click", () => printLabel({withBackground: true, download: true}));
+  $("#dTextPdf").addEventListener("click", () => printLabel({download: true}));
+  $("#dDefaults").addEventListener("click", () => {
+    if (!confirm("להחזיר את כל המיקומים לברירת המחדל? (לא נשמר עד שלוחצים שמירת הגדרות)")) return;
+    designer = structuredClone({layout: data.default_layout, calibration: {...data.default_calibration, ...{bg_x: data.calibration.bg_x, bg_y: data.calibration.bg_y}}});
+    renderDesigner(); schedulePreview();
+  });
+  $("#dFolder").addEventListener("click", () => api("/api/open-data-folder", {method: "POST"}).catch((e) => toast(e.message, true)));
+}
+
+function toggleDesigner() {
+  if (designer) {
+    designer = null;
+    $("#designer").hidden = true;
+    $("#toggleDesigner").textContent = "⚙ מצב מעצב";
+    $("#toggleDesigner").setAttribute("aria-pressed", "false");
+  } else {
+    designer = structuredClone({layout: data.layout, calibration: data.calibration});
+    renderDesigner();
+    $("#designer").hidden = false;
+    $("#toggleDesigner").textContent = "✕ סגירת מצב מעצב";
+    $("#toggleDesigner").setAttribute("aria-pressed", "true");
+    $("#designer").scrollIntoView({behavior: "smooth", block: "start"});
+  }
+  schedulePreview();
+}
+
+// ---------- wiring ----------
+for (const k of FIELDS) $(`#f_${k}`).addEventListener("input", onEdit);
+$("#search").addEventListener("input", renderList);
+$("#newProduct").addEventListener("click", newProduct);
+$("#save").addEventListener("click", () => saveProduct(false));
+$("#saveAsNew").addEventListener("click", () => saveProduct(true));
+$("#revert").addEventListener("click", () => current.id && selectProduct(current.id, {force: true}));
+$("#delete").addEventListener("click", deleteProduct);
+$("#date").addEventListener("input", () => { daily.date = $("#date").value; schedulePreview(); });
+$("#today").addEventListener("click", () => { $("#date").value = daily.date = todayText(); schedulePreview(); });
+for (const b of document.querySelectorAll("[data-weight]")) b.addEventListener("click", () => setWeight(b.dataset.weight));
+$("#copiesMinus").addEventListener("click", () => { $("#copies").value = Math.max(1, Number($("#copies").value) - 1); persist(); });
+$("#copiesPlus").addEventListener("click", () => { $("#copies").value = Math.min(500, Number($("#copies").value) + 1); persist(); });
+$("#copies").addEventListener("change", persist);
+$("#print").addEventListener("click", () => printLabel());
+$("#toggleDesigner").addEventListener("click", toggleDesigner);
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") { e.preventDefault(); printLabel(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveProduct(false); }
+});
+window.addEventListener("beforeunload", persist);
+
+async function init() {
+  try {
+    data = await api("/api/state");
+  } catch (e) {
+    document.body.innerHTML = `<p style="padding:40px">טעינת האפליקציה נכשלה: ${escapeHtml(e.message)}</p>`;
+    return;
+  }
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+  $("#date").value = daily.date;
+  $("#copies").value = saved.copies || 1;
+  setWeight(saved.weight || "1");
+  const stored = data.products.find((p) => p.id === saved.productId) || data.products[0];
+  if (stored) {
+    current = {...stored};
+    savedCopy = productKey(stored);
+    if (saved.draft && saved.draft.id === stored.id) Object.assign(current, saved.draft);
+  } else {
+    current = {...data.empty_product};
+  }
+  fillForm();
+}
+init();
+</script>
+</body>
+</html>

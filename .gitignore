@@ -1,1 +1,6 @@
 old_blends_backup*
+__pycache__/
+grid/backups/
+grid/labels_db.json
+grid/labels_db.tmp
+logs/

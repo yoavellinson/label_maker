@@ -18,6 +18,7 @@ TMP = Path(tempfile.mkdtemp(prefix="label-maker-test-"))
 os.environ["LABEL_MAKER_V2_DATA_DIR"] = str(TMP)
 
 import label_core as core  # noqa: E402
+import label_full as full  # noqa: E402
 import layout_dev_app  # noqa: E402
 
 core.register_fonts(ROOT / "fonts")
@@ -120,6 +121,60 @@ class ComposeTests(unittest.TestCase):
         self.assertEqual(len(pdfium.PdfDocument(pdf)), 3)
 
 
+class SurpriseAndFullLabelTests(unittest.TestCase):
+    def test_surprise_replaces_date_on_preprinted_label(self):
+        fields = core.compose(BASE, dict(DAILY, date_mode="surprise"), LAYOUT)
+        dates = by_role(fields, "date")
+        self.assertEqual([f["text"] for f in dates], ["הפתעה!"])
+
+    def full_pdf(self, product, daily):
+        import pypdfium2 as pdfium
+
+        pdf, warnings = full.label_pdf(product, daily, full.merged_layout({}), full.merged_calibration({}), None, copies=2)
+        document = pdfium.PdfDocument(pdf)
+        text = document[0].get_textpage().get_text_range()
+        w, h = document[0].get_size()
+        return len(document), text, (round(w / core.MM), round(h / core.MM)), warnings
+
+    def test_full_label_size_copies_and_content(self):
+        pages, text, size, warnings = self.full_pdf(dict(BASE, description="קפה עם גוף מלא", page=10, score="86"), DAILY)
+        self.assertEqual(pages, 2)
+        self.assertEqual(size, (50, 100))
+        self.assertIn("24/11/2026", text)
+        self.assertIn("SPECIALTY COFFEE 86", text)
+        self.assertEqual(warnings, [])
+
+    def test_full_label_surprise_has_no_date_or_weight(self):
+        _, text, _, _ = self.full_pdf(BASE, dict(DAILY, date_mode="surprise"))
+        self.assertFalse(any(ch.isdigit() for ch in text), text)
+
+    def test_full_label_long_description_warns_instead_of_overflowing(self):
+        _, _, _, warnings = self.full_pdf(dict(BASE, description="מילה " * 200), DAILY)
+        self.assertTrue(any(w.startswith("תיאור") for w in warnings))
+
+
+class V1ImportTests(unittest.TestCase):
+    def test_blend_rows_map_to_products(self):
+        rows = [
+            {"badge_line_1": "תערובת Ravello", "badge_line_2": "70% ערביקה", "roast_level": "קלייה בינונית כהה",
+             "note_1": "שוקולד מריר", "note_2": "מוקה", "note_3": "", "description": "קפה  טוב\nמאוד"},
+            {"badge_line_1": "קולומביה", "badge_line_2": "Hulia", "roast_level": "", "specialty_coffee": "1",
+             "cup_score": "85.5", "specialty_process": "שטוף", "note_1": "פירותי"},
+            {"badge_line_1": "שרי הודו", "badge_line_2": "רובוסטה", "roast_level": "קלייה בינונית", "note_1": "אדמתי"},
+        ]
+        ravello, hulia, cherry = (core.product_from_blend(r) for r in rows)
+        self.assertEqual((ravello["title"], ravello["bean"], ravello["tastes"]), ("תערובת Ravello", "blend:70", "שוקולד מריר, מוקה"))
+        self.assertEqual(ravello["description"], "קפה טוב מאוד")
+        self.assertEqual((hulia["title"], hulia["score"], hulia["process"], hulia["page"]), ("קולומביה Hulia", "85.5", "שטוף", 11))
+        self.assertEqual((cherry["title"], cherry["bean"]), ("שרי הודו", "single:רובוסטה"))
+
+    def test_import_skips_existing(self):
+        rows = [{"badge_line_1": "פרו", "roast_level": "קלייה בינונית"}]
+        db = {"products": [dict(core.EMPTY_PRODUCT, title="פרו", roast="קלייה בינונית")]}
+        self.assertEqual(core.import_blends(db, rows), 0)
+        self.assertEqual(core.import_blends({"products": []}, rows), 1)
+
+
 class MigrationTests(unittest.TestCase):
     def test_legacy_preset_with_misclassified_items(self):
         record = {
@@ -188,6 +243,36 @@ class ApiTests(unittest.TestCase):
     def test_title_required(self):
         response = self.client.post("/api/products", json={"product": dict(BASE, title="  ")})
         self.assertEqual(response.status_code, 400)
+
+    def test_full_format_preview_and_print(self):
+        payload = {"product": dict(BASE, description="תיאור"), "daily": DAILY, "format": "full"}
+        preview = self.client.post("/api/preview", json=payload).get_json()
+        self.assertTrue(preview["image"].startswith("data:image/png;base64,"))
+        pdf = self.client.post("/api/print.pdf", json=dict(payload, copies=3))
+        import pypdfium2 as pdfium
+
+        self.assertEqual(len(pdfium.PdfDocument(pdf.data)), 3)
+
+    def test_label_formats_route_to_the_right_renderer(self):
+        import pypdfium2 as pdfium
+
+        def page_size(fmt):
+            pdf = self.client.post("/api/print.pdf", json={"product": BASE, "daily": DAILY, "format": fmt}).data
+            w, h = pdfium.PdfDocument(pdf)[0].get_size()
+            text = pdfium.PdfDocument(pdf)[0].get_textpage().get_text_range()
+            return (round(w / core.MM), round(h / core.MM)), text
+
+        self.assertEqual(page_size("preprinted")[0], (100, 100))
+        self.assertEqual(page_size("full")[0], (50, 100))
+        size, text = page_size("surprise")
+        self.assertEqual(size, (50, 100))
+        self.assertNotIn("2026", text)
+        self.assertIn("2026", page_size("full")[1])
+
+    def test_description_is_saved(self):
+        saved = self.client.post("/api/products", json={"product": dict(BASE, title="עם תיאור", description="  שורה  ")}).get_json()["product"]
+        self.assertEqual(saved["description"], "שורה")
+        self.client.delete(f"/api/products/{saved['id']}")
 
     def test_preview_and_print(self):
         payload = {"product": BASE, "daily": DAILY}

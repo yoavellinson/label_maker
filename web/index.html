@@ -49,21 +49,29 @@
   /* preview column */
   .center { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
   .stage { flex: 1; min-height: 0; display: grid; place-items: center; background: #e7ded3; border-radius: var(--radius); border: 1px solid var(--line); padding: 16px; overflow: hidden; }
-  .sticker { position: relative; width: min(100%, calc(100vh - 290px)); aspect-ratio: 1; box-shadow: 0 14px 40px rgba(40, 25, 15, .25); background: white; }
+  .sticker { position: relative; width: min(100%, calc(100vh - 340px)); aspect-ratio: 1; box-shadow: 0 14px 40px rgba(40, 25, 15, .25); background: white; }
   .sticker img { position: absolute; inset: 0; width: 100%; height: 100%; }
   .sticker.loading #textImg { opacity: .6; }
+  .format-bar { display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .format-bar .seg button { font-size: 15px; padding: 8px 16px; }
+  .sticker.full { width: auto; height: calc(100vh - 340px); min-height: 320px; }
+  .sticker.full #bgImg { display: none; }
+  .date-row button.on { background: var(--accent); color: white; }
+  .date-row input:disabled { background: #f1ece4; color: var(--muted); }
+  .field textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; resize: vertical; font: inherit; }
   .notes { display: flex; flex-wrap: wrap; gap: 8px; min-height: 0; }
   .note { padding: 6px 10px; border-radius: 6px; font-size: 13px; background: var(--warn-soft); color: var(--warn); }
   .note.error { background: #fde8e5; color: var(--danger); }
 
-  .daily { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; grid-template-columns: auto auto auto 1fr; gap: 18px; align-items: end; }
+  .daily { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-end; }
+  .daily .print { flex: 1 1 160px; }
   .group-label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: white; }
   .seg button { border: 0; background: none; padding: 10px 16px; min-width: 54px; font-size: 17px; }
   .seg button + button { border-right: 1px solid var(--line); }
   .seg button.active { background: var(--accent); color: white; font-weight: 700; }
   .date-row { display: flex; gap: 6px; }
-  .date-row input { width: 130px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; text-align: center; direction: ltr; font-size: 16px; }
+  .date-row input { width: 116px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; text-align: center; direction: ltr; font-size: 16px; }
   .copies input { width: 56px; text-align: center; border: 0; font-size: 17px; padding: 10px 0; }
   .print { justify-self: stretch; min-height: 56px; border: 0; border-radius: 10px; background: #141414; color: white; font-size: 21px; font-weight: 800; }
   .print:hover { background: #000; }
@@ -132,6 +140,14 @@
 
   <!-- 2. preview + print -->
   <section class="center">
+    <div class="format-bar">
+      <span class="group-label" style="margin:0">סוג מדבקה</span>
+      <div class="seg" id="formatSeg">
+        <button data-format="preprinted">רגילה</button>
+        <button data-format="full">צרה</button>
+        <button data-format="surprise">הפתעה</button>
+      </div>
+    </div>
     <div class="stage">
       <div class="sticker" id="sticker">
         <img id="bgImg" alt="">
@@ -140,7 +156,7 @@
     </div>
     <div class="notes" id="notes"></div>
     <div class="daily">
-      <div>
+      <div id="dateGroup">
         <span class="group-label">תאריך קלייה</span>
         <div class="date-row">
           <input id="date" type="text" inputmode="numeric" placeholder="ריק = בכתב יד">
@@ -193,6 +209,7 @@
       </label>
       <label class="field"><span>כשרות</span><input id="f_kosher" list="kosherList" autocomplete="off"></label>
       <label class="field" id="scoreField"><span>ציון ספיישלטי</span><input id="f_score" inputmode="decimal" autocomplete="off" placeholder="למשל 85.4"></label>
+      <label class="field"><span>תיאור <small>(מודפס רק במדבקה הצרה ובהפתעה)</small></span><textarea id="f_description" placeholder="כמה משפטים על הקפה"></textarea></label>
 
       <div class="designer" id="designer" hidden></div>
     </div>
@@ -223,13 +240,18 @@
 
 <script>
 const $ = (sel) => document.querySelector(sel);
-const FIELDS = ["title", "tastes", "roast", "bean", "process", "kosher", "score"];
+const FIELDS = ["title", "tastes", "roast", "bean", "process", "kosher", "score", "description"];
 const STORAGE_KEY = "label-maker-v3";
 
 let data = null;          // /api/state
 let current = null;       // product being edited (may be unsaved)
 let savedCopy = null;     // JSON of the stored version, for dirty detection
 let daily = {date: todayText(), weight: "1"};
+// "preprinted" = רגילה (100x100 preprinted), "full" = צרה (50x100 colour),
+// "surprise" = הפתעה (50x100 colour, "הפתעה!" instead of date and weight)
+let labelFormat = "preprinted";
+const DEFAULT_WEIGHT = {preprinted: "1", full: "0.25"};
+function isNarrow() { return labelFormat !== "preprinted"; }
 let designer = null;      // {layout, calibration} drafts while designer mode is on
 
 // ---------- helpers ----------
@@ -259,6 +281,7 @@ function persist() {
     productId: current?.id || "",
     draft: current && isDirty() ? current : null,
     weight: daily.weight,
+    format: labelFormat,
     copies: $("#copies").value,
   }));
 }
@@ -326,8 +349,11 @@ function onEdit() {
   for (const k of FIELDS) current[k] = $(`#f_${k}`).value;
   const specialty = !!pageInfo(current.page).specialty;
   $("#scoreField").hidden = !specialty;
-  $("#weightGroup").hidden = specialty;
-  $("#weightPreprinted").hidden = !specialty;
+  const weightPreprinted = specialty && labelFormat === "preprinted";
+  const surprise = labelFormat === "surprise";
+  $("#weightGroup").hidden = weightPreprinted || surprise;
+  $("#weightPreprinted").hidden = !weightPreprinted;
+  $("#dateGroup").hidden = surprise;
   updateSaveBar();
   renderList();
   schedulePreview();
@@ -391,18 +417,28 @@ function setWeight(value) {
   persist();
 }
 
+function setFormat(value, {resetWeight = false} = {}) {
+  labelFormat = ["full", "surprise"].includes(value) ? value : "preprinted";
+  for (const b of document.querySelectorAll("[data-format]")) b.classList.toggle("active", b.dataset.format === labelFormat);
+  $("#sticker").classList.toggle("full", isNarrow());
+  if (resetWeight && DEFAULT_WEIGHT[labelFormat]) setWeight(DEFAULT_WEIGHT[labelFormat]);
+  if (designer) renderDesigner();
+  if (current) onEdit();
+}
+
 // ---------- preview ----------
 let previewTimer = null;
 let previewSeq = 0;
-function settingsPayload() { return designer ? {layout: designer.layout, calibration: designer.calibration} : {}; }
+function settingsPayload() { return {format: labelFormat, ...(designer || {})}; }
 function schedulePreview() { clearTimeout(previewTimer); previewTimer = setTimeout(updatePreview, 90); }
 
 async function updatePreview() {
   const seq = ++previewSeq;
-  const cal = designer ? designer.calibration : data.calibration;
-  const bgQuery = designer ? `?bg_x=${cal.bg_x}&bg_y=${cal.bg_y}&bg_scale=${cal.bg_scale}&sticker_w=${cal.sticker_w}&sticker_h=${cal.sticker_h}` : "";
+  const full = isNarrow();
+  const cal = full ? (designer ? designer.full_calibration : data.full_calibration) : (designer ? designer.calibration : data.calibration);
+  const bgQuery = designer && !full ? `?bg_x=${cal.bg_x}&bg_y=${cal.bg_y}&bg_scale=${cal.bg_scale}&sticker_w=${cal.sticker_w}&sticker_h=${cal.sticker_h}` : "";
   const bgSrc = `/api/background/${current.page}.png${bgQuery}`;
-  if ($("#bgImg").getAttribute("src") !== bgSrc) $("#bgImg").src = bgSrc;
+  if (!full && $("#bgImg").getAttribute("src") !== bgSrc) $("#bgImg").src = bgSrc;
   $("#sticker").style.aspectRatio = `${cal.sticker_w} / ${cal.sticker_h}`;
   $("#sticker").classList.add("loading");
   try {
@@ -500,16 +536,49 @@ function textToItems(text) {
   return text.split("|").map((s) => reverse[s.trim()]).filter(Boolean);
 }
 
+const FULL_SECTIONS = [
+  ["מדבקה צרה 5×10", [
+    ["full_calibration.sticker_w", "רוחב מ״מ"], ["full_calibration.sticker_h", "גובה מ״מ"], ["full_calibration.rotation", "סיבוב הדפסה", "rotation"],
+    ["full_layout.margin", "שוליים"], ["full_layout.pad", "ריווח בין בלוקים"], ["full_layout.art_zoom", "זום איור", "", 0.01],
+    ["full_layout.art_min", "גובה איור מינימלי"], ["full_layout.art_max", "גובה איור מקסימלי"], ["full_layout.strip_h", "גובה פס צבע"],
+    ["full_layout.strip_text.size", "גודל טקסט בפס"], ["full_layout.specialty.size", "גודל SPECIALTY"],
+  ]],
+  ["שם הקפה", [
+    ["full_layout.title.size", "גודל"], ["full_layout.title.min_size", "גודל מינימלי"], ["full_layout.title.two_line_size", "גודל בשתי שורות"],
+    ["full_layout.title.weight", "עובי", "weight"], ["full_layout.title.kerning", "קרנינג", "", 1],
+  ]],
+  ["שורות מידע (נשברות לשורה חדשה כשאין מקום)", [
+    ["full_layout.rows.0.items", "קבוצה 1 – סדר משמאל לימין", "items"],
+    ["full_layout.rows.0.size", "קבוצה 1 · גודל"], ["full_layout.rows.0.weight", "קבוצה 1 · עובי", "weight"], ["full_layout.rows.0.kerning", "קבוצה 1 · קרנינג", "", 1],
+    ["full_layout.rows.1.items", "קבוצה 2 – סדר משמאל לימין", "items"],
+    ["full_layout.rows.1.size", "קבוצה 2 · גודל"], ["full_layout.rows.1.weight", "קבוצה 2 · עובי", "weight"], ["full_layout.rows.1.kerning", "קבוצה 2 · קרנינג", "", 1],
+    ["full_layout.row_gap", "רווח בין שורות"], ["full_layout.separator.gap", "רווח ליד |"],
+  ]],
+  ["תיאור", [
+    ["full_layout.description.size", "גודל"], ["full_layout.description.min_size", "גודל מינימלי"], ["full_layout.description.line_gap", "רווח בין שורות"],
+  ]],
+  ["תאריך, כוס ומשקל", [
+    ["full_layout.band_h", "גובה הפס התחתון"], ["full_layout.date_cell_right", "סוף תא תאריך"], ["full_layout.cup_cell_right", "סוף תא כוס"],
+    ["full_layout.date_label.size", "כותרת תאריך · גודל"], ["full_layout.date.size", "תאריך · גודל"], ["full_layout.surprise.size", "הפתעה! · גודל"],
+    ["full_layout.weight.size", "משקל · גודל"], ["full_layout.weight_fraction_size", "½¼ · גודל"],
+  ]],
+];
+
+function designerFull() { return isNarrow(); }
+
 function renderDesigner() {
   const root = $("#designer");
-  let html = "";
-  for (const [title, inputs] of DESIGNER_SECTIONS) {
+  const full = designerFull();
+  let html = `<p class="hint" style="margin-top:0">עורכים עכשיו: <b>${full ? "מדבקה צרה 5×10 (גם הפתעה)" : "מדבקה רגילה 10×10"}</b> (מחליפים למעלה בסוג המדבקה)</p>`;
+  for (const [title, inputs] of (full ? FULL_SECTIONS : DESIGNER_SECTIONS)) {
     html += `<h3>${title}</h3><div class="dgrid">`;
     for (const [path, label, kind, step] of inputs) {
       const value = getPath(designer, path);
+      if (value === undefined) continue;
       if (kind === "weight") html += `<label>${label}<select data-path="${path}" data-kind="number">${D_WEIGHTS}</select></label>`;
       else if (kind === "rotation") html += `<label>${label}<select data-path="${path}" data-kind="number"><option value="0">0°</option><option value="90">90°</option><option value="-90">-90°</option><option value="180">180°</option></select></label>`;
       else if (kind === "items") html += `<label class="full">${label}<input data-path="${path}" data-kind="items" value="${escapeHtml(itemsToText(value))}"></label>`;
+      else if (kind === "text") html += `<label class="full">${label}<input data-path="${path}" data-kind="text" value="${escapeHtml(value)}"></label>`;
       else html += `<label>${label}<input type="number" step="${step || 0.1}" data-path="${path}" data-kind="number" value="${value}"></label>`;
     }
     html += `</div>`;
@@ -517,17 +586,21 @@ function renderDesigner() {
   html += `<p class="hint">מילים לסדר השורות: ${Object.values(data.row_items).join(", ")}. התצוגה מתעדכנת מיד; השינויים נשמרים רק בלחיצה על "שמירת הגדרות".</p>
     <div class="btn-row" style="margin-top:10px">
       <button class="btn" id="dSave">שמירת הגדרות</button>
-      <button class="btn secondary" id="dPdf">PDF עם רקע (בדיקה)</button>
-      <button class="btn secondary" id="dTextPdf">הורדת PDF טקסט</button>
+      ${full ? "" : `<button class="btn secondary" id="dPdf">PDF עם רקע (בדיקה)</button>`}
+      <button class="btn secondary" id="dTextPdf">הורדת PDF</button>
       <button class="btn ghost" id="dDefaults">ברירת מחדל</button>
       <button class="btn ghost" id="dFolder">תיקיית נתונים</button>
-    </div>`;
+    </div>
+    <h3>קפה מהגרסה הישנה</h3>
+    <p class="hint">מוסיף לרשימה את הקפה מהאפליקציה הישנה (blends.csv), כולל תיאורים. קפה עם אותו שם וקלייה לא יתווסף פעמיים. כדאי לבדוק את העיצוב (שוקולדי/פירותי/פורטה) שנבחר לכל קפה.</p>
+    <button class="btn secondary" id="dImport">ייבוא קפה מגרסה 1</button>`;
   root.innerHTML = html;
   for (const el of root.querySelectorAll("select[data-path]")) el.value = String(getPath(designer, el.dataset.path));
   for (const el of root.querySelectorAll("[data-path]")) {
     el.addEventListener("input", () => {
-      const value = el.dataset.kind === "items" ? textToItems(el.value) : Number(el.value);
-      if (el.dataset.kind === "number" && !Number.isFinite(value)) return;
+      const kind = el.dataset.kind;
+      const value = kind === "items" ? textToItems(el.value) : kind === "text" ? el.value : Number(el.value);
+      if (kind === "number" && !Number.isFinite(value)) return;
       setPath(designer, el.dataset.path, value);
       schedulePreview();
     });
@@ -535,18 +608,32 @@ function renderDesigner() {
   $("#dSave").addEventListener("click", async () => {
     try {
       const saved = await api("/api/settings", {method: "POST", body: JSON.stringify(designer)});
-      data.layout = saved.layout; data.calibration = saved.calibration;
+      Object.assign(data, saved);
       toast("ההגדרות נשמרו");
     } catch (e) { toast(e.message, true); }
   });
-  $("#dPdf").addEventListener("click", () => printLabel({withBackground: true, download: true}));
+  $("#dPdf")?.addEventListener("click", () => printLabel({withBackground: true, download: true}));
   $("#dTextPdf").addEventListener("click", () => printLabel({download: true}));
   $("#dDefaults").addEventListener("click", () => {
-    if (!confirm("להחזיר את כל המיקומים לברירת המחדל? (לא נשמר עד שלוחצים שמירת הגדרות)")) return;
-    designer = structuredClone({layout: data.default_layout, calibration: {...data.default_calibration, ...{bg_x: data.calibration.bg_x, bg_y: data.calibration.bg_y}}});
+    if (!confirm("להחזיר את המיקומים של סוג המדבקה הזה לברירת המחדל? (לא נשמר עד שלוחצים שמירת הגדרות)")) return;
+    if (full) {
+      designer.full_layout = structuredClone(data.default_full_layout);
+      designer.full_calibration = structuredClone(data.default_full_calibration);
+    } else {
+      designer.layout = structuredClone(data.default_layout);
+      designer.calibration = {...data.default_calibration, bg_x: data.calibration.bg_x, bg_y: data.calibration.bg_y};
+    }
     renderDesigner(); schedulePreview();
   });
   $("#dFolder").addEventListener("click", () => api("/api/open-data-folder", {method: "POST"}).catch((e) => toast(e.message, true)));
+  $("#dImport").addEventListener("click", async () => {
+    try {
+      const result = await api("/api/import-v1", {method: "POST"});
+      data.products = result.products.sort((a, b) => (a.title + a.roast).localeCompare(b.title + b.roast, "he"));
+      renderList();
+      toast(result.added ? `נוספו ${result.added} סוגי קפה (מתוך ${result.total})` : "כל הקפה מהגרסה הישנה כבר ברשימה");
+    } catch (e) { toast(e.message, true); }
+  });
 }
 
 function toggleDesigner() {
@@ -556,7 +643,10 @@ function toggleDesigner() {
     $("#toggleDesigner").textContent = "⚙ מצב מעצב";
     $("#toggleDesigner").setAttribute("aria-pressed", "false");
   } else {
-    designer = structuredClone({layout: data.layout, calibration: data.calibration});
+    designer = structuredClone({
+      layout: data.layout, calibration: data.calibration,
+      full_layout: data.full_layout, full_calibration: data.full_calibration,
+    });
     renderDesigner();
     $("#designer").hidden = false;
     $("#toggleDesigner").textContent = "✕ סגירת מצב מעצב";
@@ -576,6 +666,7 @@ $("#revert").addEventListener("click", () => current.id && selectProduct(current
 $("#delete").addEventListener("click", deleteProduct);
 $("#date").addEventListener("input", () => { daily.date = $("#date").value; schedulePreview(); });
 $("#today").addEventListener("click", () => { $("#date").value = daily.date = todayText(); schedulePreview(); });
+for (const b of document.querySelectorAll("[data-format]")) b.addEventListener("click", () => { setFormat(b.dataset.format, {resetWeight: true}); persist(); });
 for (const b of document.querySelectorAll("[data-weight]")) b.addEventListener("click", () => setWeight(b.dataset.weight));
 $("#copiesMinus").addEventListener("click", () => { $("#copies").value = Math.max(1, Number($("#copies").value) - 1); persist(); });
 $("#copiesPlus").addEventListener("click", () => { $("#copies").value = Math.min(500, Number($("#copies").value) + 1); persist(); });
@@ -599,6 +690,7 @@ async function init() {
   $("#date").value = daily.date;
   $("#copies").value = saved.copies || 1;
   setWeight(saved.weight || "1");
+  setFormat(saved.format || "preprinted");
   const stored = data.products.find((p) => p.id === saved.productId) || data.products[0];
   if (stored) {
     current = {...stored};

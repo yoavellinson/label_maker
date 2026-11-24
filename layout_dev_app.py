@@ -26,6 +26,7 @@ from pathlib import Path
 from flask import Flask, Response, jsonify, request, send_file
 
 import label_core as core
+import label_full as full
 
 
 def app_base_dir() -> Path:
@@ -149,18 +150,56 @@ def clean_product(raw: dict) -> dict:
     for key in core.EMPTY_PRODUCT:
         if key in raw and raw[key] is not None:
             product[key] = raw[key]
-    for key in ("title", "tastes", "roast", "process", "kosher", "score", "bean"):
+    for key in ("title", "tastes", "roast", "process", "kosher", "score", "bean", "description"):
         product[key] = str(product[key]).strip()
     page = int(product.get("page") or 6)
     product["page"] = page if page in core.PAGES else 6
     return product
 
 
+def pick(payload: dict, db: dict, key: str):
+    """Designer mode sends unsaved settings so the preview updates live."""
+    return payload.get(key) if payload.get(key) is not None else db.get(key)
+
+
 def request_settings(payload: dict, db: dict) -> tuple[dict, dict]:
-    """Designer mode sends unsaved layout/calibration so the preview updates live."""
-    layout = core.merged_layout(payload.get("layout") if payload.get("layout") is not None else db.get("layout"))
-    calibration = core.merged_calibration(payload.get("calibration") if payload.get("calibration") is not None else db.get("calibration"))
+    layout = core.merged_layout(pick(payload, db, "layout"))
+    calibration = core.merged_calibration(pick(payload, db, "calibration"))
     return layout, calibration
+
+
+def full_settings(payload: dict, db: dict) -> tuple[dict, dict]:
+    return full.merged_layout(pick(payload, db, "full_layout")), full.merged_calibration(pick(payload, db, "full_calibration"))
+
+
+def full_label(payload: dict, copies: int = 1) -> tuple[bytes, list[str]]:
+    """Render the full-print 50x100 label for a request payload."""
+    db = read_db()
+    layout, calibration = full_settings(payload, db)
+    product = clean_product(payload.get("product") or {})
+    sticker_calibration = core.merged_calibration(db.get("calibration"))
+    art = full.design_art(master_pdf_path(), product["page"], sticker_calibration)
+    return full.label_pdf(product, daily_for(payload), layout, calibration, art, copies=copies)
+
+
+LABEL_FORMATS = {"preprinted", "full", "surprise"}
+
+
+def label_format(payload: dict) -> str:
+    value = payload.get("format")
+    return value if value in LABEL_FORMATS else "preprinted"
+
+
+def is_full(payload: dict) -> bool:
+    """Narrow 50x100 labels: the regular one and the surprise one."""
+    return label_format(payload) in {"full", "surprise"}
+
+
+def daily_for(payload: dict) -> dict:
+    """The surprise label prints "הפתעה!" with no date and no weight."""
+    daily = dict(payload.get("daily") or {})
+    daily["date_mode"] = "surprise" if label_format(payload) == "surprise" else "date"
+    return daily
 
 
 # --- pages and assets -------------------------------------------------------
@@ -228,6 +267,10 @@ def state():
         "calibration": core.merged_calibration(db.get("calibration")),
         "default_layout": core.DEFAULT_LAYOUT,
         "default_calibration": core.DEFAULT_CALIBRATION,
+        "full_layout": full.merged_layout(db.get("full_layout")),
+        "full_calibration": full.merged_calibration(db.get("full_calibration")),
+        "default_full_layout": full.DEFAULT_FULL_LAYOUT,
+        "default_full_calibration": full.DEFAULT_FULL_CALIBRATION,
         "row_items": core.ROW_ITEM_LABELS,
         "empty_product": core.EMPTY_PRODUCT,
         "data_dir": str(DATA_DIR),
@@ -239,12 +282,20 @@ def compose_request() -> tuple[list[dict], dict, dict]:
     db = read_db()
     layout, calibration = request_settings(payload, db)
     product = clean_product(payload.get("product") or {})
-    daily = payload.get("daily") or {}
-    return core.compose(product, daily, layout), layout, calibration
+    return core.compose(product, daily_for(payload), layout), layout, calibration
 
 
 @app.post("/api/preview")
 def preview():
+    payload = request.get_json(force=True) or {}
+    if is_full(payload):
+        try:
+            pdf, warnings = full_label(payload)
+            png = core.pdf_to_png(pdf, PREVIEW_PX_PER_MM, transparent=False)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("full preview failed")
+            return jsonify({"error": f"התצוגה נכשלה: {exc}"}), 500
+        return jsonify({"image": "data:image/png;base64," + b64encode(png).decode("ascii"), "shrunk": warnings, "overflow": []})
     fields, layout, calibration = compose_request()
     try:
         png = core.pdf_to_png(core.label_pdf(fields, calibration), PREVIEW_PX_PER_MM)
@@ -261,12 +312,16 @@ def preview():
 @app.post("/api/print.pdf")
 def print_pdf():
     payload = request.get_json(force=True) or {}
+    copies = int(payload.get("copies") or 1)
+    if is_full(payload):
+        pdf, _ = full_label(payload, copies=copies)
+        log.info("print %s copies=%s title=%s", label_format(payload), copies, (payload.get("product") or {}).get("title", ""))
+        return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": "inline; filename=label.pdf"})
     fields, _, calibration = compose_request()
     background = None
     if payload.get("with_background"):
         page = clean_product(payload.get("product") or {})["page"]
         background = core.background_png(master_pdf_path(), page, calibration, 24)
-    copies = int(payload.get("copies") or 1)
     pdf = core.label_pdf(fields, calibration, copies=copies, background_png=background)
     log.info("print copies=%s background=%s title=%s", copies, bool(background), (payload.get("product") or {}).get("title", ""))
     return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": "inline; filename=label.pdf"})
@@ -315,10 +370,45 @@ def save_settings():
         db["layout"] = core.merged_layout(payload["layout"])
     if "calibration" in payload:
         db["calibration"] = core.merged_calibration(payload["calibration"])
+    if "full_layout" in payload:
+        db["full_layout"] = full.merged_layout(payload["full_layout"])
+    if "full_calibration" in payload:
+        db["full_calibration"] = full.merged_calibration(payload["full_calibration"])
     write_db(db)
     _background_cache.clear()
     log.info("settings saved")
-    return jsonify({"layout": db["layout"], "calibration": db["calibration"]})
+    return jsonify({
+        "layout": core.merged_layout(db.get("layout")),
+        "calibration": core.merged_calibration(db.get("calibration")),
+        "full_layout": full.merged_layout(db.get("full_layout")),
+        "full_calibration": full.merged_calibration(db.get("full_calibration")),
+    })
+
+
+def v1_blends_path() -> Path | None:
+    """The live v1 database if the v1 app is installed, otherwise the bundled copy."""
+    candidates = []
+    if os.name == "nt":
+        candidates.append(Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "LabelMaker" / "blends.csv")
+    candidates += [DATA_DIR / "blends.csv", BASE_DIR / "blends.csv"]
+    return next((path for path in candidates if path.exists()), None)
+
+
+@app.post("/api/import-v1")
+def import_v1():
+    import csv
+
+    path = v1_blends_path()
+    if not path:
+        return jsonify({"error": "לא נמצא קובץ blends.csv של הגרסה הישנה."}), 404
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    db = read_db()
+    added = core.import_blends(db, rows)
+    if added:
+        write_db(db)
+    log.info("imported %d of %d v1 blends from %s", added, len(rows), path)
+    return jsonify({"added": added, "total": len(rows), "source": str(path), "products": db["products"]})
 
 
 @app.post("/api/open-data-folder")

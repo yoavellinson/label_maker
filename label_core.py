@@ -90,6 +90,7 @@ EMPTY_PRODUCT = {
     "process": "",
     "kosher": KOSHER_TEXT,
     "score": "",
+    "description": "",
     "page": 6,
 }
 
@@ -138,6 +139,13 @@ def merged_calibration(stored: dict | None) -> dict:
 
 
 # --- text content -----------------------------------------------------------
+
+SURPRISE_TEXT = "הפתעה!"
+
+
+def is_surprise(daily: dict) -> bool:
+    return str(daily.get("date_mode") or "") == "surprise"
+
 
 def bean_text(code: str) -> str:
     kind, _, value = str(code or "").partition(":")
@@ -240,9 +248,13 @@ def compose(product: dict, daily: dict, layout: dict) -> list[dict]:
         fields.append(centered_field(weight, spec, "weight"))
         fields.append(centered_field("ק״ג", layout["weight_unit"], "weight_unit"))
 
-    date = str(daily.get("date") or "").strip()
-    if date:
-        fields.append(centered_field(date, layout["date"], "date"))
+    if is_surprise(daily):
+        spec = dict(layout["date"], weight=700)
+        fields.append(centered_field(SURPRISE_TEXT, spec, "date"))
+    else:
+        date = str(daily.get("date") or "").strip()
+        if date:
+            fields.append(centered_field(date, layout["date"], "date"))
 
     score = str(product.get("score") or "").strip()
     if specialty and score:
@@ -474,3 +486,78 @@ def migrate_presets(presets_db: dict) -> dict:
         "calibration": calibration,
         "products": products,
     }
+
+
+# --- import from the v1 app (blends.csv) ---------------------------------------
+
+FRUITY_WORDS = ("פירות", "פירותי", "פרותי", "פטל", "תות", "דובדבן", "אפרסק", "תפוז", "הדר", "אננס", "ענבים", "פרחוני", "יסמין", "תפוח")
+STRONG_WORDS = ("חזק", "מעושן")
+
+
+def product_from_blend(row: dict) -> dict | None:
+    import re
+
+    line1 = str(row.get("badge_line_1") or "").strip()
+    line2 = str(row.get("badge_line_2") or "").strip()
+    roast = str(row.get("roast_level") or "").strip()
+    fields = [line1, line2, roast]
+    percent = next((m.group(1) for f in fields if (m := re.search(r"(\d+)%\s*ערביקה", f))), None)
+    if roast and not roast.startswith("קלייה"):
+        roast = next((f for f in fields if f.startswith("קלייה")), "")
+    name_parts = [line1]
+    if line2 and line2 != "-" and "%" not in line2 and line2 != "רובוסטה" and not line2.startswith("קלייה"):
+        name_parts.append(line2)
+    title = " ".join(part for part in name_parts if part).strip()
+    if not title:
+        return None
+    if percent:
+        bean = f"blend:{percent}"
+    elif "רובוסטה" in line2:
+        bean = "single:רובוסטה"
+    else:
+        bean = "single:ערביקה"
+    notes = [str(row.get(f"note_{i}") or "").strip() for i in (1, 2, 3)]
+    tastes = ", ".join(n for n in notes if n)
+    specialty = str(row.get("specialty_coffee") or "").strip() in {"1", "true", "True", "on"}
+    # Guess the design: strong/smoky -> פורטה, fruity lead note -> פירותי, otherwise שוקולדי.
+    lead = next((n for n in notes if n), "")
+    if any(word in tastes for word in STRONG_WORDS) or roast == "קלייה כהה":
+        page = 6
+    elif any(word in lead for word in FRUITY_WORDS):
+        page = 5
+    else:
+        page = 4
+    if specialty:
+        page += 6
+    product = dict(EMPTY_PRODUCT)
+    product.update({
+        "title": title,
+        "tastes": tastes,
+        "roast": roast,
+        "bean": bean,
+        "process": str(row.get("specialty_process") or "").strip(),
+        "score": str(row.get("cup_score") or "").strip() if specialty else "",
+        "description": " ".join(str(row.get("description") or "").split()),
+        "page": page,
+    })
+    return product
+
+
+def import_blends(db: dict, rows: list[dict]) -> int:
+    """Add v1 coffees that are not already in the list (same name and roast). Returns count added."""
+    import uuid
+    from datetime import datetime
+
+    existing = {(p.get("title", "").strip(), p.get("roast", "").strip()) for p in db.get("products", [])}
+    added = 0
+    for row in rows:
+        product = product_from_blend(row)
+        if not product or (product["title"], product["roast"]) in existing:
+            continue
+        product["id"] = uuid.uuid4().hex
+        product["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        product["source"] = "v1"
+        db.setdefault("products", []).append(product)
+        existing.add((product["title"], product["roast"]))
+        added += 1
+    return added

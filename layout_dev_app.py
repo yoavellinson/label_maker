@@ -189,14 +189,14 @@ def sheet_label(payload: dict, outlines: bool = False) -> tuple[bytes, list[str]
                            outlines=outlines, narrow_width=narrow_width)
 
 
-def full_label(payload: dict, copies: int = 1) -> tuple[bytes, list[str]]:
+def full_label(payload: dict, copies: int = 1, rotate: bool = True) -> tuple[bytes, list[str]]:
     """Render the full-print 50x100 label for a request payload."""
     db = read_db()
     layout, calibration = full_settings(payload, db)
     product = clean_product(payload.get("product") or {})
     sticker_calibration = core.merged_calibration(db.get("calibration"))
     art = full.design_art(master_pdf_path(), product["page"], sticker_calibration)
-    return full.label_pdf(product, daily_for(payload), layout, calibration, art, copies=copies)
+    return full.label_pdf(product, daily_for(payload), layout, calibration, art, copies=copies, rotate=rotate)
 
 
 LABEL_FORMATS = {"preprinted", "full", "surprise", "sheet"}
@@ -371,7 +371,7 @@ def preview():
         return jsonify({"image": "data:image/png;base64," + b64encode(png).decode("ascii"), "shrunk": warnings, "overflow": [], "pages": pages})
     if is_full(payload):
         try:
-            pdf, warnings = full_label(payload)
+            pdf, warnings = full_label(payload, rotate=False)
             png = core.pdf_to_png(pdf, PREVIEW_PX_PER_MM, transparent=False)
         except Exception as exc:  # noqa: BLE001
             log.exception("full preview failed")
@@ -379,7 +379,7 @@ def preview():
         return jsonify({"image": "data:image/png;base64," + b64encode(png).decode("ascii"), "shrunk": warnings, "overflow": []})
     fields, layout, calibration = compose_request()
     try:
-        png = core.pdf_to_png(core.label_pdf(fields, calibration), PREVIEW_PX_PER_MM)
+        png = core.pdf_to_png(core.label_pdf(fields, calibration, rotate=False), PREVIEW_PX_PER_MM)
     except Exception as exc:  # noqa: BLE001
         log.exception("preview failed")
         return jsonify({"error": f"התצוגה נכשלה: {exc}"}), 500

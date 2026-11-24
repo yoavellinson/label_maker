@@ -24,6 +24,7 @@ a = Analysis(
         "pypdfium2",
         "pypdfium2_raw",
         "certifi",
+        "win32gui",
         "win32print",
         "win32ui",
         "PIL.ImageWin",

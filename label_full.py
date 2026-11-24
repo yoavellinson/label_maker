@@ -466,16 +466,17 @@ def draw_weight(c, daily, layout, cell_left, W, H, band_mid, band_h):
     draw_ink_middle(c, "ק״ג", left, band_mid + 0.3 * em(wsize) * 0.62, unit["size"], unit["weight"], 30, H)
 
 
-def label_pdf(product: dict, daily: dict, layout: dict, calibration: dict, art, copies: int = 1) -> tuple[bytes, list[str]]:
+def label_pdf(product: dict, daily: dict, layout: dict, calibration: dict, art, copies: int = 1,
+              rotate: bool = True) -> tuple[bytes, list[str]]:
+    """Narrow-label PDF. `rotate=False` keeps it upright (previews)."""
     W, H = calibration["sticker_w"], calibration["sticker_h"]
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=(W * MM, H * MM))
     c.setTitle("label")
-    rotation = int(calibration.get("rotation") or 0) % 360
+    rotation = int(calibration.get("rotation") or 0) if rotate else 0
     warnings: list[str] = []
     for _ in range(max(1, min(int(copies or 1), 500))):
-        if rotation:
-            c.setPageRotation(rotation)
+        core.rotated_page(c, W * MM, H * MM, rotation)
         warnings = draw_label(c, product, daily, layout, calibration, art)
         c.showPage()
     c.save()

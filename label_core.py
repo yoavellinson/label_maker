@@ -326,16 +326,38 @@ def draw_fields(c: canvas.Canvas, fields: list[dict], sticker_h_mm: float, color
         c.drawText(text)
 
 
-def label_pdf(fields: list[dict], calibration: dict, copies: int = 1, background_png: bytes | None = None) -> bytes:
+def rotated_page(c: canvas.Canvas, width_pt: float, height_pt: float, rotation: int) -> None:
+    """Start a page that holds a width x height label turned `rotation` degrees clockwise.
+
+    The rotation is drawn into the content (no PDF /Rotate flag), so every viewer,
+    printer driver and renderer shows exactly the same page."""
+    rotation %= 360
+    if rotation in (90, 270):
+        c.setPageSize((height_pt, width_pt))
+    else:
+        c.setPageSize((width_pt, height_pt))
+    if rotation == 90:
+        c.translate(0, width_pt)
+        c.rotate(-90)
+    elif rotation == 180:
+        c.translate(width_pt, height_pt)
+        c.rotate(180)
+    elif rotation == 270:
+        c.translate(height_pt, 0)
+        c.rotate(90)
+
+
+def label_pdf(fields: list[dict], calibration: dict, copies: int = 1, background_png: bytes | None = None,
+              rotate: bool = True) -> bytes:
+    """Preprinted-label PDF. `rotate=False` keeps it upright (previews)."""
     width = calibration["sticker_w"] * MM
     height = calibration["sticker_h"] * MM
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=(width, height))
     c.setTitle("label")
-    rotation = int(calibration.get("rotation") or 0) % 360
+    rotation = int(calibration.get("rotation") or 0) if rotate else 0
     for _ in range(max(1, min(int(copies or 1), 500))):
-        if rotation:
-            c.setPageRotation(rotation)
+        rotated_page(c, width, height, rotation)
         if background_png:
             from reportlab.lib.utils import ImageReader
 

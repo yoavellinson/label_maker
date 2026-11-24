@@ -139,6 +139,15 @@ class SurpriseAndFullLabelTests(unittest.TestCase):
         w, h = document[0].get_size()
         return len(document), text, (round(w / core.MM), round(h / core.MM)), warnings
 
+    def test_rotation_is_drawn_not_flagged(self):
+        import pypdfium2 as pdfium
+
+        for rotation, size in ((0, (50, 100)), (180, (50, 100)), (90, (100, 50)), (-90, (100, 50))):
+            pdf, _ = full.label_pdf(BASE, DAILY, full.merged_layout({}), full.merged_calibration({"rotation": rotation}), None)
+            page = pdfium.PdfDocument(pdf)[0]
+            self.assertEqual(page.get_rotation(), 0)
+            self.assertEqual(tuple(round(v / core.MM) for v in page.get_size()), size)
+
     def test_full_label_size_copies_and_content(self):
         pages, text, size, warnings = self.full_pdf(dict(BASE, description="קפה עם גוף מלא", page=10, score="86"), DAILY)
         self.assertEqual(pages, 2)
@@ -308,10 +317,16 @@ class DirectPrintTests(unittest.TestCase):
         win32print = mock.Mock(PRINTER_ENUM_LOCAL=2, PRINTER_ENUM_CONNECTIONS=4)
         win32print.EnumPrinters.return_value = [(0, "", name, "") for name in printers]
         win32print.GetDefaultPrinter.return_value = printers[0]
+        devmode = mock.Mock(Fields=0)
+        win32print.GetPrinter.return_value = {"pDevMode": devmode}
         win32ui = mock.Mock()
         win32ui.CreateDC.side_effect = lambda: FakeDC(log)
+        win32ui.CreateDCFromHandle.side_effect = lambda handle: FakeDC(log)
+        win32gui = mock.Mock()
+        win32gui.CreateDC.side_effect = lambda driver, name, mode: log.append(("devmode", name, mode.PaperSize, mode.PaperWidth if mode.PaperSize == 256 else None, mode.Scale)) or 1
         image_win = mock.Mock(Dib=FakeDib)
         patches = [
+            mock.patch.object(printing, "win32gui", win32gui),
             mock.patch.object(printing, "win32print", win32print),
             mock.patch.object(printing, "win32ui", win32ui),
             mock.patch.object(printing, "ImageWin", image_win),
@@ -329,7 +344,16 @@ class DirectPrintTests(unittest.TestCase):
         draws = [entry for entry in log if entry[0] == "draw"]
         mm100 = round(100 / 25.4 * 300)
         self.assertEqual(draws[0][1], (-50, -40, mm100 - 50, mm100 - 40))
-        self.assertIn(("printer", "Thermal"), log)
+        # The job asks the driver for 100% scale on 100 x 100 mm paper.
+        self.assertIn(("devmode", "Thermal", printing.DMPAPER_USER, 1000, 100), log)
+
+    def test_rotated_label_prints_on_rotated_page(self):
+        log = self.fake_windows()
+        pdf, _ = full.label_pdf(BASE, DAILY, full.merged_layout({}), full.merged_calibration({"rotation": 90}), None)
+        printing.print_pdf(pdf, "Color Label")
+        draw = next(entry for entry in log if entry[0] == "draw")
+        width_px, height_px = draw[1][2] - draw[1][0], draw[1][3] - draw[1][1]
+        self.assertGreater(width_px, height_px)  # 100 x 50 mm landscape page
 
     def test_unknown_printer_is_rejected(self):
         self.fake_windows()

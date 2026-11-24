@@ -52,6 +52,7 @@ LAYOUT_DB_PATH = GRID_DIR / "layout_presets.json"
 
 POINTS_PER_MM = 72 / 25.4
 RENDER_DPI = 144
+ROAST_DATE_FONT_SIZE = 16
 
 
 app = Flask(__name__)
@@ -126,7 +127,30 @@ def read_layout_db() -> dict:
     ensure_runtime_data()
     if not LAYOUT_DB_PATH.exists():
         return {"layouts": []}
-    return json.loads(LAYOUT_DB_PATH.read_text(encoding="utf-8"))
+    data = json.loads(LAYOUT_DB_PATH.read_text(encoding="utf-8"))
+    if migrate_roast_date_font_size(data):
+        write_layout_db(data)
+    return data
+
+
+def migrate_roast_date_font_size(value: object) -> bool:
+    changed = False
+    if isinstance(value, dict):
+        if value.get("role") == "roast_date":
+            if "size" in value and value.get("size") != ROAST_DATE_FONT_SIZE:
+                value["size"] = ROAST_DATE_FONT_SIZE
+                changed = True
+            if "font_size_pt" in value and value.get("font_size_pt") != ROAST_DATE_FONT_SIZE:
+                value["font_size_pt"] = ROAST_DATE_FONT_SIZE
+                changed = True
+        for child in value.values():
+            if migrate_roast_date_font_size(child):
+                changed = True
+    elif isinstance(value, list):
+        for child in value:
+            if migrate_roast_date_font_size(child):
+                changed = True
+    return changed
 
 
 def write_layout_db(data: dict) -> None:
@@ -1307,7 +1331,7 @@ TEMPLATE = """
       kosher: {role: "kosher", name: "כשרות", text: "כשרות חתם סופר", x: 28, y: 44, size: 12.5, kerning: 30, weight: "300", align: "center"},
       weight: {role: "weight_value", name: "משקל", text: "1", x: 86, y: 28, size: 49, kerning: 0, weight: "300", align: "center"},
       weight_unit: {role: "weight_unit", name: "ק״ג", text: "ק״ג", x: 78, y: 28, size: 28, kerning: 30, weight: "300", align: "center"},
-      date: {role: "roast_date", name: "תאריך", text: "", x: 85, y: 42, size: 13, kerning: 30, weight: "400", align: "center"},
+      date: {role: "roast_date", name: "תאריך", text: "", x: 85, y: 42, size: 16, kerning: 30, weight: "400", align: "center"},
       separator: {role: "separator", name: "מפריד", text: "|", x: 35.5, y: 89.4, size: 13, kerning: 0, weight: "400", align: "center"},
     };
 
@@ -2319,6 +2343,9 @@ TEMPLATE = """
             weight: String(item.weight || item.font_weight || "400"),
             align: item.align || "center",
           };
+          if (normalizedItem.role === "roast_date" || normalizedItem.name === "תאריך") {
+            normalizedItem.size = 16;
+          }
           if (item.kerning !== undefined && item.kerning !== null) {
             normalizedItem.kerning = item.kerning;
           } else if (item.letterSpacing !== undefined && item.letterSpacing !== null) {

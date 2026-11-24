@@ -3,3 +3,4 @@ reportlab==4.5.1
 python-bidi==0.6.10
 Pillow==12.2.0
 pypdfium2==5.13.0
+certifi==2026.11.20

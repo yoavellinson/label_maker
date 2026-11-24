@@ -56,6 +56,7 @@
   .format-bar .seg button { font-size: 15px; padding: 8px 16px; }
   .sticker.full { width: auto; height: calc(100vh - 340px); min-height: 320px; }
   .sticker.full #bgImg { display: none; }
+  .sticker.sheet { box-shadow: 0 6px 24px rgba(40, 25, 15, .2); }
   .date-row button.on { background: var(--accent); color: white; }
   .date-row input:disabled { background: #f1ece4; color: var(--muted); }
   .field textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; resize: vertical; font: inherit; }
@@ -113,6 +114,12 @@
   .dgrid input, .dgrid select { width: 100%; padding: 6px 7px; border: 1px solid var(--line); border-radius: 6px; background: white; direction: ltr; }
   .dgrid .full { grid-column: 1 / -1; }
   .dgrid .full input { direction: rtl; }
+  .version-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 18px; width: 360px; direction: rtl; font: inherit; color: var(--ink); }
+  dialog::backdrop { background: rgba(30, 20, 15, .35); }
+  .update-notes { white-space: pre-wrap; max-height: 180px; overflow: auto; font-size: 13px; background: #f6f1e9; padding: 8px 10px; border-radius: 6px; margin-top: 8px; }
+  .updating { position: fixed; inset: 0; background: rgba(255, 253, 249, .92); display: grid; place-items: center; text-align: center; font-size: 22px; font-weight: 700; z-index: 20; }
+  .updating small { font-size: 14px; font-weight: 400; color: var(--muted); }
   .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1d1d1d; color: white; padding: 10px 18px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 10; }
   .toast.show { opacity: 1; }
   .toast.error { background: var(--danger); }
@@ -135,6 +142,7 @@
     <ul class="products" id="productList"></ul>
     <div class="list-foot">
       <button class="btn secondary wide" id="newProduct">+ קפה חדש</button>
+      <div class="version-row"><span id="appVersion"></span><button class="btn ghost small" id="checkUpdate">בדיקת עדכונים</button></div>
     </div>
   </section>
 
@@ -146,6 +154,10 @@
         <button data-format="preprinted">רגילה</button>
         <button data-format="full">צרה</button>
         <button data-format="surprise">הפתעה</button>
+      </div>
+      <div class="seg" id="surpriseKind" hidden>
+        <button data-surprise-kind="surprise">מדבקה צרה</button>
+        <button data-surprise-kind="sheet">דף A4 (12)</button>
       </div>
     </div>
     <div class="stage">
@@ -172,8 +184,14 @@
         </div>
       </div>
       <div class="preprinted" id="weightPreprinted" hidden>1 ק״ג מודפס מראש על מדבקות ספיישלטי</div>
+      <div id="startGroup" hidden>
+        <span class="group-label">להתחיל ממדבקה מס׳</span>
+        <div class="seg copies">
+          <input id="start" type="number" min="1" max="12" value="1" style="width:64px">
+        </div>
+      </div>
       <div>
-        <span class="group-label">עותקים</span>
+        <span class="group-label" id="copiesLabel">עותקים</span>
         <div class="seg copies">
           <button id="copiesMinus" aria-label="פחות">−</button>
           <input id="copies" type="number" min="1" max="500" value="1">
@@ -226,6 +244,19 @@
 </main>
 
 <div class="toast" id="toast"></div>
+<dialog id="updateDialog">
+  <form method="dialog" id="updateForm">
+    <h3 style="margin:0 0 10px">עדכון גרסה</h3>
+    <div id="updateBody">
+      <label class="field"><span>סיסמת עדכון</span><input id="updatePassword" type="password" autocomplete="off"></label>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" id="updateGo" value="go">בדיקה</button>
+      <button class="btn ghost" id="updateCancel" value="cancel" formnovalidate>סגירה</button>
+    </div>
+  </form>
+</dialog>
+<div class="updating" id="updating" hidden><div>מתקין עדכון…<br><small>האפליקציה תיסגר ותיפתח מחדש. אין לכבות את המחשב.</small></div></div>
 
 <datalist id="roastList">
   <option value="קלייה בהירה"><option value="קלייה בינונית בהירה"><option value="קלייה בינונית">
@@ -251,7 +282,10 @@ let daily = {date: todayText(), weight: "1"};
 // "surprise" = הפתעה (50x100 colour, "הפתעה!" instead of date and weight)
 let labelFormat = "preprinted";
 const DEFAULT_WEIGHT = {preprinted: "1", full: "0.25"};
-function isNarrow() { return labelFormat !== "preprinted"; }
+let surpriseKind = "surprise";    // what the הפתעה button prints: narrow label or A4 sheet
+function isNarrow() { return labelFormat === "full" || labelFormat === "surprise"; }
+function isSheet() { return labelFormat === "sheet"; }
+function perSheet() { const s = (designer || data).sheet_layout; return s.cols * s.rows_per_page; }
 let designer = null;      // {layout, calibration} drafts while designer mode is on
 
 // ---------- helpers ----------
@@ -282,6 +316,7 @@ function persist() {
     draft: current && isDirty() ? current : null,
     weight: daily.weight,
     format: labelFormat,
+    surpriseKind,
     copies: $("#copies").value,
   }));
 }
@@ -350,7 +385,7 @@ function onEdit() {
   const specialty = !!pageInfo(current.page).specialty;
   $("#scoreField").hidden = !specialty;
   const weightPreprinted = specialty && labelFormat === "preprinted";
-  const surprise = labelFormat === "surprise";
+  const surprise = labelFormat === "surprise" || isSheet();
   $("#weightGroup").hidden = weightPreprinted || surprise;
   $("#weightPreprinted").hidden = !weightPreprinted;
   $("#dateGroup").hidden = surprise;
@@ -418,9 +453,20 @@ function setWeight(value) {
 }
 
 function setFormat(value, {resetWeight = false} = {}) {
-  labelFormat = ["full", "surprise"].includes(value) ? value : "preprinted";
-  for (const b of document.querySelectorAll("[data-format]")) b.classList.toggle("active", b.dataset.format === labelFormat);
-  $("#sticker").classList.toggle("full", isNarrow());
+  const wasSheet = isSheet();
+  labelFormat = ["full", "surprise", "sheet"].includes(value) ? value : "preprinted";
+  if (labelFormat === "surprise" || labelFormat === "sheet") surpriseKind = labelFormat;
+  const topButton = labelFormat === "sheet" ? "surprise" : labelFormat;
+  for (const b of document.querySelectorAll("[data-format]")) b.classList.toggle("active", b.dataset.format === topButton);
+  for (const b of document.querySelectorAll("[data-surprise-kind]")) b.classList.toggle("active", b.dataset.surpriseKind === labelFormat);
+  $("#surpriseKind").hidden = topButton !== "surprise";
+  $("#sticker").classList.toggle("full", isNarrow() || isSheet());
+  $("#sticker").classList.toggle("sheet", isSheet());
+  $("#startGroup").hidden = !isSheet();
+  $("#copiesLabel").textContent = isSheet() ? "מספר מדבקות" : "עותקים";
+  if (data) $("#start").max = perSheet();
+  if (isSheet() && !wasSheet && data) $("#copies").value = perSheet();
+  if (!isSheet() && wasSheet) $("#copies").value = 1;
   if (resetWeight && DEFAULT_WEIGHT[labelFormat]) setWeight(DEFAULT_WEIGHT[labelFormat]);
   if (designer) renderDesigner();
   if (current) onEdit();
@@ -429,13 +475,14 @@ function setFormat(value, {resetWeight = false} = {}) {
 // ---------- preview ----------
 let previewTimer = null;
 let previewSeq = 0;
-function settingsPayload() { return {format: labelFormat, ...(designer || {})}; }
+function settingsPayload() { return {format: labelFormat, start: Number($("#start").value) || 1, ...(designer || {})}; }
 function schedulePreview() { clearTimeout(previewTimer); previewTimer = setTimeout(updatePreview, 90); }
 
 async function updatePreview() {
   const seq = ++previewSeq;
-  const full = isNarrow();
-  const cal = full ? (designer ? designer.full_calibration : data.full_calibration) : (designer ? designer.calibration : data.calibration);
+  const full = isNarrow() || isSheet();
+  const sheetLayout = (designer || data).sheet_layout;
+  const cal = isSheet() ? {sticker_w: sheetLayout.page_w, sticker_h: sheetLayout.page_h} : full ? (designer ? designer.full_calibration : data.full_calibration) : (designer ? designer.calibration : data.calibration);
   const bgQuery = designer && !full ? `?bg_x=${cal.bg_x}&bg_y=${cal.bg_y}&bg_scale=${cal.bg_scale}&sticker_w=${cal.sticker_w}&sticker_h=${cal.sticker_h}` : "";
   const bgSrc = `/api/background/${current.page}.png${bgQuery}`;
   if (!full && $("#bgImg").getAttribute("src") !== bgSrc) $("#bgImg").src = bgSrc;
@@ -456,6 +503,7 @@ async function updatePreview() {
 function renderNotes(result) {
   const notes = [];
   if (result.error) notes.push(`<span class="note error">${escapeHtml(result.error)}</span>`);
+  if (result.pages > 1) notes.push(`<span class="note">יודפסו ${result.pages} דפי A4 – בתצוגה רואים רק את הראשון</span>`);
   const shrunk = (result.shrunk || []).filter((r) => !(result.overflow || []).includes(r));
   if (shrunk.length) notes.push(`<span class="note">טקסט ארוך – הוקטן אוטומטית: ${shrunk.join(", ")}</span>`);
   if ((result.overflow || []).length) notes.push(`<span class="note error">ארוך מדי ולא נכנס במדבקה: ${result.overflow.join(", ")} – כדאי לקצר</span>`);
@@ -463,12 +511,12 @@ function renderNotes(result) {
 }
 
 // ---------- print ----------
-async function printLabel({withBackground = false, download = false} = {}) {
+async function printLabel({withBackground = false, download = false, outlines = false} = {}) {
   const copies = Math.max(1, Math.min(500, Number($("#copies").value) || 1));
   $("#print").disabled = true;
   try {
     const blob = await api("/api/print.pdf", {method: "POST", body: JSON.stringify({
-      product: current, daily, copies: withBackground ? 1 : copies, with_background: withBackground, ...settingsPayload(),
+      product: current, daily, copies: withBackground ? 1 : copies, with_background: withBackground, outlines, ...settingsPayload(),
     })});
     const url = URL.createObjectURL(blob);
     if (download) {
@@ -564,18 +612,30 @@ const FULL_SECTIONS = [
   ]],
 ];
 
+const SHEET_SECTIONS = [
+  ["דף A4 (המדבקה עצמה = עיצוב המדבקה הצרה)", [
+    ["sheet_layout.cols", "עמודות", "", 1], ["sheet_layout.rows_per_page", "שורות", "", 1], ["sheet_layout.margin_top", "שוליים למעלה"],
+    ["sheet_layout.label_w", "רוחב משבצת"], ["sheet_layout.label_h", "גובה משבצת"], ["sheet_layout.margin_left", "שוליים משמאל"],
+    ["sheet_layout.gap_x", "רווח אופקי"], ["sheet_layout.gap_y", "רווח אנכי"],
+    ["sheet_layout.white_edge", "שוליים לבנים של המדפסת (0 = ללא)"],
+  ]],
+];
+
 function designerFull() { return isNarrow(); }
 
 function renderDesigner() {
   const root = $("#designer");
   const full = designerFull();
-  let html = `<p class="hint" style="margin-top:0">עורכים עכשיו: <b>${full ? "מדבקה צרה 5×10 (גם הפתעה)" : "מדבקה רגילה 10×10"}</b> (מחליפים למעלה בסוג המדבקה)</p>`;
-  for (const [title, inputs] of (full ? FULL_SECTIONS : DESIGNER_SECTIONS)) {
+  const sheetMode = isSheet();
+  const editing = sheetMode ? "דף הפתעה A4" : full ? "מדבקה צרה 5×10 (גם הפתעה)" : "מדבקה רגילה 10×10";
+  let html = `<p class="hint" style="margin-top:0">עורכים עכשיו: <b>${editing}</b> (מחליפים למעלה בסוג המדבקה)</p>`;
+  for (const [title, inputs] of (sheetMode ? SHEET_SECTIONS : full ? FULL_SECTIONS : DESIGNER_SECTIONS)) {
     html += `<h3>${title}</h3><div class="dgrid">`;
     for (const [path, label, kind, step] of inputs) {
       const value = getPath(designer, path);
       if (value === undefined) continue;
       if (kind === "weight") html += `<label>${label}<select data-path="${path}" data-kind="number">${D_WEIGHTS}</select></label>`;
+      else if (kind === "sheetrot") html += `<label>${label}<select data-path="${path}" data-kind="number"><option value="90">ראש לשמאל</option><option value="-90">ראש לימין</option></select></label>`;
       else if (kind === "rotation") html += `<label>${label}<select data-path="${path}" data-kind="number"><option value="0">0°</option><option value="90">90°</option><option value="-90">-90°</option><option value="180">180°</option></select></label>`;
       else if (kind === "items") html += `<label class="full">${label}<input data-path="${path}" data-kind="items" value="${escapeHtml(itemsToText(value))}"></label>`;
       else if (kind === "text") html += `<label class="full">${label}<input data-path="${path}" data-kind="text" value="${escapeHtml(value)}"></label>`;
@@ -586,7 +646,8 @@ function renderDesigner() {
   html += `<p class="hint">מילים לסדר השורות: ${Object.values(data.row_items).join(", ")}. התצוגה מתעדכנת מיד; השינויים נשמרים רק בלחיצה על "שמירת הגדרות".</p>
     <div class="btn-row" style="margin-top:10px">
       <button class="btn" id="dSave">שמירת הגדרות</button>
-      ${full ? "" : `<button class="btn secondary" id="dPdf">PDF עם רקע (בדיקה)</button>`}
+      ${full || sheetMode ? "" : `<button class="btn secondary" id="dPdf">PDF עם רקע (בדיקה)</button>`}
+      ${sheetMode ? `<button class="btn secondary" id="dOutline">דף בדיקה עם מסגרות</button>` : ""}
       <button class="btn secondary" id="dTextPdf">הורדת PDF</button>
       <button class="btn ghost" id="dDefaults">ברירת מחדל</button>
       <button class="btn ghost" id="dFolder">תיקיית נתונים</button>
@@ -613,10 +674,13 @@ function renderDesigner() {
     } catch (e) { toast(e.message, true); }
   });
   $("#dPdf")?.addEventListener("click", () => printLabel({withBackground: true, download: true}));
+  $("#dOutline")?.addEventListener("click", () => printLabel({outlines: true}));
   $("#dTextPdf").addEventListener("click", () => printLabel({download: true}));
   $("#dDefaults").addEventListener("click", () => {
     if (!confirm("להחזיר את המיקומים של סוג המדבקה הזה לברירת המחדל? (לא נשמר עד שלוחצים שמירת הגדרות)")) return;
-    if (full) {
+    if (sheetMode) {
+      designer.sheet_layout = structuredClone(data.default_sheet_layout);
+    } else if (full) {
       designer.full_layout = structuredClone(data.default_full_layout);
       designer.full_calibration = structuredClone(data.default_full_calibration);
     } else {
@@ -646,6 +710,7 @@ function toggleDesigner() {
     designer = structuredClone({
       layout: data.layout, calibration: data.calibration,
       full_layout: data.full_layout, full_calibration: data.full_calibration,
+      sheet_layout: data.sheet_layout,
     });
     renderDesigner();
     $("#designer").hidden = false;
@@ -654,6 +719,81 @@ function toggleDesigner() {
     $("#designer").scrollIntoView({behavior: "smooth", block: "start"});
   }
   schedulePreview();
+}
+
+// ---------- updates (manual only, password protected) ----------
+let updateStage = "password";   // password -> confirm
+let updatePassword = "";
+let updateInfo = null;
+
+function openUpdateDialog() {
+  updateStage = "password";
+  updateInfo = null;
+  $("#updateBody").innerHTML = `<label class="field"><span>סיסמת עדכון</span><input id="updatePassword" type="password" autocomplete="off"></label>`;
+  $("#updateGo").textContent = "בדיקה";
+  $("#updateGo").hidden = false;
+  $("#updateDialog").showModal();
+  $("#updatePassword").focus();
+}
+
+async function updateStep(event) {
+  event.preventDefault();
+  if (updateStage === "password") {
+    updatePassword = $("#updatePassword").value;
+    $("#updateGo").disabled = true;
+    $("#updateGo").textContent = "בודק…";
+    try {
+      updateInfo = await api("/api/update/check", {method: "POST", body: JSON.stringify({password: updatePassword})});
+    } catch (e) {
+      $("#updateGo").disabled = false;
+      $("#updateGo").textContent = "בדיקה";
+      toast(e.message, true);
+      return;
+    }
+    $("#updateGo").disabled = false;
+    if (!updateInfo.available) {
+      $("#updateBody").innerHTML = `<p>מותקנת הגרסה האחרונה (${escapeHtml(updateInfo.current)}).</p>`;
+      $("#updateGo").hidden = true;
+      return;
+    }
+    const notes = updateInfo.notes ? `<div class="update-notes">${escapeHtml(updateInfo.notes)}</div>` : "";
+    if (!updateInfo.can_install) {
+      $("#updateBody").innerHTML = `<p>גרסה ${escapeHtml(updateInfo.latest)} זמינה (מותקנת ${escapeHtml(updateInfo.current)}).</p>
+        <p class="hint">התקנה מתוך האפליקציה עובדת רק במחשב ה-Windows שבו האפליקציה מותקנת.</p>${notes}`;
+      $("#updateGo").hidden = true;
+      return;
+    }
+    $("#updateBody").innerHTML = `<p>גרסה <b>${escapeHtml(updateInfo.latest)}</b> זמינה (מותקנת ${escapeHtml(updateInfo.current)}).</p>
+      <p class="hint">האפליקציה תיסגר, העדכון יותקן והיא תיפתח מחדש. סוגי הקפה וההגדרות נשמרים.</p>${notes}`;
+    $("#updateGo").textContent = "התקנת העדכון";
+    updateStage = "confirm";
+    return;
+  }
+  if (updateStage === "confirm") {
+    $("#updateGo").disabled = true;
+    try {
+      await api("/api/update/install", {method: "POST", body: JSON.stringify({password: updatePassword})});
+    } catch (e) {
+      $("#updateGo").disabled = false;
+      toast(e.message, true);
+      return;
+    }
+    $("#updateDialog").close();
+    $("#updating").hidden = false;
+    waitForNewVersion(data.version);
+  }
+}
+
+async function waitForNewVersion(oldVersion) {
+  const started = Date.now();
+  while (Date.now() - started < 5 * 60 * 1000) {
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    try {
+      const {version} = await api("/api/version");
+      if (version !== oldVersion) { location.reload(); return; }
+    } catch (e) { /* app is restarting */ }
+  }
+  $("#updating").innerHTML = "<div>העדכון לוקח זמן רב מהרגיל.<br><small>אפשר לפתוח את האפליקציה מחדש מהאייקון בשולחן העבודה.</small></div>";
 }
 
 // ---------- wiring ----------
@@ -666,13 +806,22 @@ $("#revert").addEventListener("click", () => current.id && selectProduct(current
 $("#delete").addEventListener("click", deleteProduct);
 $("#date").addEventListener("input", () => { daily.date = $("#date").value; schedulePreview(); });
 $("#today").addEventListener("click", () => { $("#date").value = daily.date = todayText(); schedulePreview(); });
-for (const b of document.querySelectorAll("[data-format]")) b.addEventListener("click", () => { setFormat(b.dataset.format, {resetWeight: true}); persist(); });
+for (const b of document.querySelectorAll("[data-format]")) b.addEventListener("click", () => {
+  setFormat(b.dataset.format === "surprise" ? surpriseKind : b.dataset.format, {resetWeight: true});
+  persist();
+});
+for (const b of document.querySelectorAll("[data-surprise-kind]")) b.addEventListener("click", () => { setFormat(b.dataset.surpriseKind); persist(); });
+$("#start").addEventListener("input", schedulePreview);
+$("#copies").addEventListener("input", () => isSheet() && schedulePreview());
 for (const b of document.querySelectorAll("[data-weight]")) b.addEventListener("click", () => setWeight(b.dataset.weight));
-$("#copiesMinus").addEventListener("click", () => { $("#copies").value = Math.max(1, Number($("#copies").value) - 1); persist(); });
-$("#copiesPlus").addEventListener("click", () => { $("#copies").value = Math.min(500, Number($("#copies").value) + 1); persist(); });
+$("#copiesMinus").addEventListener("click", () => { $("#copies").value = Math.max(1, Number($("#copies").value) - 1); persist(); if (isSheet()) schedulePreview(); });
+$("#copiesPlus").addEventListener("click", () => { $("#copies").value = Math.min(500, Number($("#copies").value) + 1); persist(); if (isSheet()) schedulePreview(); });
 $("#copies").addEventListener("change", persist);
 $("#print").addEventListener("click", () => printLabel());
 $("#toggleDesigner").addEventListener("click", toggleDesigner);
+$("#checkUpdate").addEventListener("click", openUpdateDialog);
+$("#updateForm").addEventListener("submit", updateStep);
+$("#updateCancel").addEventListener("click", (e) => { e.preventDefault(); $("#updateDialog").close(); });
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") { e.preventDefault(); printLabel(); }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveProduct(false); }
@@ -686,10 +835,12 @@ async function init() {
     document.body.innerHTML = `<p style="padding:40px">טעינת האפליקציה נכשלה: ${escapeHtml(e.message)}</p>`;
     return;
   }
+  $("#appVersion").textContent = `גרסה ${data.version}`;
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
   $("#date").value = daily.date;
   $("#copies").value = saved.copies || 1;
   setWeight(saved.weight || "1");
+  surpriseKind = saved.surpriseKind === "sheet" ? "sheet" : "surprise";
   setFormat(saved.format || "preprinted");
   const stored = data.products.find((p) => p.id === saved.productId) || data.products[0];
   if (stored) {

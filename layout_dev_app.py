@@ -27,6 +27,8 @@ from flask import Flask, Response, jsonify, request, send_file
 
 import label_core as core
 import label_full as full
+import label_sheet as sheet
+import updater
 
 
 def app_base_dir() -> Path:
@@ -57,6 +59,7 @@ BACKUP_DIR = GRID_DIR / "backups"
 LOG_DIR = DATA_DIR / "logs"
 MAX_BACKUPS = 60
 PREVIEW_PX_PER_MM = 10
+APP_VERSION = updater.read_version(BASE_DIR)
 
 core.register_fonts(FONT_DIR)
 
@@ -76,7 +79,7 @@ def setup_logging() -> None:
         handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
     log.addHandler(handler)
-    log.info("start base=%s data=%s frozen=%s", BASE_DIR, DATA_DIR, getattr(sys, "frozen", False))
+    log.info("start version=%s base=%s data=%s frozen=%s", updater.read_version(BASE_DIR), BASE_DIR, DATA_DIR, getattr(sys, "frozen", False))
 
 
 setup_logging()
@@ -172,6 +175,19 @@ def full_settings(payload: dict, db: dict) -> tuple[dict, dict]:
     return full.merged_layout(pick(payload, db, "full_layout")), full.merged_calibration(pick(payload, db, "full_calibration"))
 
 
+def sheet_label(payload: dict, outlines: bool = False) -> tuple[bytes, list[str], int]:
+    """A4 sheet of 105x46 surprise labels."""
+    db = read_db()
+    layout = sheet.merged_layout(pick(payload, db, "sheet_layout"))
+    product = clean_product(payload.get("product") or {})
+    art = full.design_art(master_pdf_path(), product["page"], core.merged_calibration(db.get("calibration")))
+    count = int(payload.get("copies") or sheet.labels_per_page(layout))
+    full_layout = full.merged_layout(pick(payload, db, "full_layout"))
+    narrow_width = full.merged_calibration(pick(payload, db, "full_calibration"))["sticker_w"]
+    return sheet.sheet_pdf(product, layout, art, full_layout, count=count, start=int(payload.get("start") or 1),
+                           outlines=outlines, narrow_width=narrow_width)
+
+
 def full_label(payload: dict, copies: int = 1) -> tuple[bytes, list[str]]:
     """Render the full-print 50x100 label for a request payload."""
     db = read_db()
@@ -182,7 +198,8 @@ def full_label(payload: dict, copies: int = 1) -> tuple[bytes, list[str]]:
     return full.label_pdf(product, daily_for(payload), layout, calibration, art, copies=copies)
 
 
-LABEL_FORMATS = {"preprinted", "full", "surprise"}
+LABEL_FORMATS = {"preprinted", "full", "surprise", "sheet"}
+SHEET_PREVIEW_PX_PER_MM = 3.2
 
 
 def label_format(payload: dict) -> str:
@@ -198,7 +215,7 @@ def is_full(payload: dict) -> bool:
 def daily_for(payload: dict) -> dict:
     """The surprise label prints "הפתעה!" with no date and no weight."""
     daily = dict(payload.get("daily") or {})
-    daily["date_mode"] = "surprise" if label_format(payload) == "surprise" else "date"
+    daily["date_mode"] = "surprise" if label_format(payload) in {"surprise", "sheet"} else "date"
     return daily
 
 
@@ -271,10 +288,63 @@ def state():
         "full_calibration": full.merged_calibration(db.get("full_calibration")),
         "default_full_layout": full.DEFAULT_FULL_LAYOUT,
         "default_full_calibration": full.DEFAULT_FULL_CALIBRATION,
+        "sheet_layout": sheet.merged_layout(db.get("sheet_layout")),
+        "default_sheet_layout": sheet.DEFAULT_SHEET_LAYOUT,
         "row_items": core.ROW_ITEM_LABELS,
         "empty_product": core.EMPTY_PRODUCT,
         "data_dir": str(DATA_DIR),
+        "version": APP_VERSION,
     })
+
+
+@app.get("/api/version")
+def version():
+    return jsonify({"version": APP_VERSION})
+
+
+def update_password_ok(payload: dict) -> bool:
+    ok = updater.check_password(payload.get("password", ""))
+    if not ok:
+        log.warning("update: wrong password")
+    return ok
+
+
+@app.post("/api/update/check")
+def update_check():
+    payload = request.get_json(force=True) or {}
+    if not update_password_ok(payload):
+        return jsonify({"error": "סיסמה שגויה."}), 403
+    try:
+        result = updater.check(APP_VERSION)
+    except updater.UpdateError as exc:
+        return jsonify({"error": str(exc)}), 502
+    result["can_install"] = updater.can_install()
+    log.info("update check: current=%s latest=%s", APP_VERSION, result["latest"])
+    return jsonify(result)
+
+
+@app.post("/api/update/install")
+def update_install():
+    payload = request.get_json(force=True) or {}
+    if not update_password_ok(payload):
+        return jsonify({"error": "סיסמה שגויה."}), 403
+    if not updater.can_install():
+        return jsonify({"error": "התקנת עדכון אפשרית רק בגרסת Windows המותקנת."}), 400
+    try:
+        release = updater.latest_release()
+        if updater.parse_version(release["version"]) <= updater.parse_version(APP_VERSION):
+            return jsonify({"error": "כבר מותקנת הגרסה האחרונה."}), 400
+        installer = updater.download_installer(release["url"], release["size"])
+        log.info("update: installing %s from %s", release["version"], installer)
+        updater.start_installer(installer)
+    except (updater.UpdateError, OSError) as exc:
+        log.exception("update failed")
+        return jsonify({"error": str(exc)}), 502
+    # Leave so the installer can replace our files; it reopens the app when done.
+    import threading
+
+    threading.Timer(1.5, lambda: os._exit(0)).start()
+    return jsonify({"ok": True, "version": release["version"]})
 
 
 def compose_request() -> tuple[list[dict], dict, dict]:
@@ -288,6 +358,14 @@ def compose_request() -> tuple[list[dict], dict, dict]:
 @app.post("/api/preview")
 def preview():
     payload = request.get_json(force=True) or {}
+    if label_format(payload) == "sheet":
+        try:
+            pdf, warnings, pages = sheet_label(payload, outlines=True)
+            png = core.pdf_to_png(pdf, SHEET_PREVIEW_PX_PER_MM, transparent=False)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("sheet preview failed")
+            return jsonify({"error": f"התצוגה נכשלה: {exc}"}), 500
+        return jsonify({"image": "data:image/png;base64," + b64encode(png).decode("ascii"), "shrunk": warnings, "overflow": [], "pages": pages})
     if is_full(payload):
         try:
             pdf, warnings = full_label(payload)
@@ -313,6 +391,10 @@ def preview():
 def print_pdf():
     payload = request.get_json(force=True) or {}
     copies = int(payload.get("copies") or 1)
+    if label_format(payload) == "sheet":
+        pdf, _, pages = sheet_label(payload, outlines=bool(payload.get("outlines")))
+        log.info("print sheet labels=%s start=%s pages=%s title=%s", copies, payload.get("start"), pages, (payload.get("product") or {}).get("title", ""))
+        return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": "inline; filename=surprise-a4.pdf"})
     if is_full(payload):
         pdf, _ = full_label(payload, copies=copies)
         log.info("print %s copies=%s title=%s", label_format(payload), copies, (payload.get("product") or {}).get("title", ""))
@@ -374,6 +456,8 @@ def save_settings():
         db["full_layout"] = full.merged_layout(payload["full_layout"])
     if "full_calibration" in payload:
         db["full_calibration"] = full.merged_calibration(payload["full_calibration"])
+    if "sheet_layout" in payload:
+        db["sheet_layout"] = sheet.merged_layout(payload["sheet_layout"])
     write_db(db)
     _background_cache.clear()
     log.info("settings saved")
@@ -382,6 +466,7 @@ def save_settings():
         "calibration": core.merged_calibration(db.get("calibration")),
         "full_layout": full.merged_layout(db.get("full_layout")),
         "full_calibration": full.merged_calibration(db.get("full_calibration")),
+        "sheet_layout": sheet.merged_layout(db.get("sheet_layout")),
     })
 
 

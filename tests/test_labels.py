@@ -19,7 +19,9 @@ os.environ["LABEL_MAKER_V2_DATA_DIR"] = str(TMP)
 
 import label_core as core  # noqa: E402
 import label_full as full  # noqa: E402
+import label_sheet as sheet  # noqa: E402
 import layout_dev_app  # noqa: E402
+import updater  # noqa: E402
 
 core.register_fonts(ROOT / "fonts")
 LAYOUT = core.merged_layout({})
@@ -153,6 +155,55 @@ class SurpriseAndFullLabelTests(unittest.TestCase):
         self.assertTrue(any(w.startswith("תיאור") for w in warnings))
 
 
+class SheetTests(unittest.TestCase):
+    def pages(self, **kwargs):
+        import pypdfium2 as pdfium
+
+        pdf, warnings, pages = sheet.sheet_pdf(dict(BASE, description="תיאור"), sheet.merged_layout({}), None, **kwargs)
+        document = pdfium.PdfDocument(pdf)
+        w, h = document[0].get_size()
+        return len(document), pages, (round(w / core.MM), round(h / core.MM)), document[0].get_textpage().get_text_range()
+
+    def test_full_sheet_is_one_a4_page(self):
+        count, pages, size, text = self.pages(count=12)
+        self.assertEqual((count, pages, size), (1, 1, (210, 297)))
+        self.assertNotIn("2026", text)
+        self.assertEqual(text.count("תיאור"[::-1]) + text.count("תיאור"), 12)
+
+    def test_start_position_overflows_to_next_page(self):
+        count, pages, _, _ = self.pages(count=12, start=5)
+        self.assertEqual((count, pages), (2, 2))
+
+    def test_labels_fill_exact_slots_with_10mm_margins(self):
+        from io import BytesIO
+
+        from PIL import Image
+
+        layout = sheet.merged_layout({})
+        self.assertEqual((layout["margin_top"], layout["label_w"], layout["label_h"]), (10.0, 105.0, 46.0))
+        pdf, _, _ = sheet.sheet_pdf(BASE, layout, None, count=12)
+        image = Image.open(BytesIO(core.pdf_to_png(pdf, 4, transparent=False))).convert("L")
+        px = image.load()
+        column = [px[int(52 * 4), y] for y in range(image.height)]
+        printed = [y for y, v in enumerate(column) if v < 250]
+        self.assertAlmostEqual(printed[0] / 4, 10.0, delta=0.5)
+        self.assertAlmostEqual((printed[-1] + 1) / 4, 286.0, delta=0.5)
+        # The outer ends (label bottoms) are white where the printer cannot print.
+        edge = int(layout["white_edge"] * 4) - 1
+        for y in range(int(12 * 4), int(284 * 4), 9):
+            for x in list(range(0, edge)) + list(range(image.width - edge, image.width)):
+                self.assertGreater(px[x, y], 245, (x, y))
+        # ...while the artwork still reaches the middle of the page from both sides.
+        self.assertLess(px[image.width // 2 - 3, int(30 * 4)], 250)
+        self.assertLess(px[image.width // 2 + 3, int(30 * 4)], 250)
+
+    def test_label_grid_fills_a4_height(self):
+        layout = sheet.merged_layout({})
+        used = layout["margin_top"] * 2 + layout["rows_per_page"] * layout["label_h"]
+        self.assertLessEqual(used, 297.0)
+        self.assertEqual(layout["cols"] * layout["label_w"], 210.0)
+
+
 class V1ImportTests(unittest.TestCase):
     def test_blend_rows_map_to_products(self):
         rows = [
@@ -173,6 +224,36 @@ class V1ImportTests(unittest.TestCase):
         db = {"products": [dict(core.EMPTY_PRODUCT, title="פרו", roast="קלייה בינונית")]}
         self.assertEqual(core.import_blends(db, rows), 0)
         self.assertEqual(core.import_blends({"products": []}, rows), 1)
+
+
+class UpdaterTests(unittest.TestCase):
+    def test_password(self):
+        self.assertTrue(updater.check_password("yoav"))
+        self.assertFalse(updater.check_password("Yoav"))
+        self.assertFalse(updater.check_password(""))
+
+    def test_version_compare(self):
+        self.assertGreater(updater.parse_version("v3.10.0"), updater.parse_version("3.9.9"))
+        self.assertEqual(updater.parse_version("3.1.0"), (3, 1, 0))
+
+    def test_app_reports_bundled_version(self):
+        self.assertEqual(layout_dev_app.APP_VERSION, (ROOT / "VERSION").read_text().strip())
+
+    def test_check_endpoint(self):
+        from unittest import mock
+
+        client = layout_dev_app.app.test_client()
+        self.assertEqual(client.post("/api/update/check", json={"password": "nope"}).status_code, 403)
+        release = {"version": "99.0.0", "notes": "חדש", "url": "x", "size": 1}
+        with mock.patch.object(updater, "latest_release", return_value=release):
+            result = client.post("/api/update/check", json={"password": "yoav"}).get_json()
+        self.assertTrue(result["available"])
+        self.assertEqual(result["latest"], "99.0.0")
+        self.assertFalse(result["can_install"])  # tests do not run as the frozen Windows app
+        with mock.patch.object(updater, "latest_release", return_value=dict(release, version="0.1")):
+            self.assertFalse(client.post("/api/update/check", json={"password": "yoav"}).get_json()["available"])
+        self.assertEqual(client.post("/api/update/install", json={"password": "yoav"}).status_code, 400)
+        self.assertEqual(client.post("/api/update/install", json={"password": "x"}).status_code, 403)
 
 
 class MigrationTests(unittest.TestCase):
@@ -263,6 +344,7 @@ class ApiTests(unittest.TestCase):
             return (round(w / core.MM), round(h / core.MM)), text
 
         self.assertEqual(page_size("preprinted")[0], (100, 100))
+        self.assertEqual(page_size("sheet")[0], (210, 297))
         self.assertEqual(page_size("full")[0], (50, 100))
         size, text = page_size("surprise")
         self.assertEqual(size, (50, 100))

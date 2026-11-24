@@ -258,8 +258,12 @@ def line_width(items: list[tuple[str, str]], row: dict, size: float, layout: dic
 
 # --- the label ----------------------------------------------------------------
 
-def draw_label(c, product: dict, daily: dict, layout: dict, calibration: dict, art) -> list[str]:
-    """Draw one label. `art` is the design illustration (PIL) or None. Returns warnings."""
+def draw_label(c, product: dict, daily: dict, layout: dict, calibration: dict, art,
+               bottom_white: float = 0.0) -> list[str]:
+    """Draw one label. `art` is the design illustration (PIL) or None. Returns warnings.
+
+    `bottom_white` (mm) makes the bottom band white and adds that much white below
+    its content, so a printer's unprintable page edge at the label bottom is invisible."""
     W, H = calibration["sticker_w"], calibration["sticker_h"]
     page = int(product.get("page") or 6)
     info = core.PAGES.get(page, {})
@@ -299,7 +303,9 @@ def draw_label(c, product: dict, daily: dict, layout: dict, calibration: dict, a
 
     d_lines, d_h = description_height(d_size) if description else ([], 0.0)
 
-    band_h = float(layout["band_h"])
+    bottom_white = max(0.0, float(bottom_white or 0))
+    band_content_h = float(layout["band_h"])
+    band_h = band_content_h + bottom_white
     strip_h = float(layout["strip_h"])
     blocks = [h for h in (title_h, rows_h) if h]
     tail_h = d_h
@@ -331,6 +337,8 @@ def draw_label(c, product: dict, daily: dict, layout: dict, calibration: dict, a
 
     # ---- backgrounds, artwork, strip -----------------------------------------
     rect(0, 0, W, H, body)
+    if bottom_white:
+        rect(0, H - band_h, W, band_h, "#ffffff")
     if art is not None:
         jpeg = art_crop_jpeg(art, page, W, art_h, float(layout["art_zoom"]))
         c.drawImage(ImageReader(BytesIO(jpeg)), 0, (H - art_h) * MM, width=W * MM, height=art_h * MM)
@@ -397,7 +405,8 @@ def draw_label(c, product: dict, daily: dict, layout: dict, calibration: dict, a
     # ---- date | cup | weight band ----------------------------------------------
     date_right = float(layout["date_cell_right"])
     cup_right = float(layout["cup_cell_right"])
-    band_mid = band_top + band_h / 2
+    band_mid = band_top + band_content_h / 2
+    band_bottom = H - bottom_white
     surprise = core.is_surprise(daily)
     # A surprise label has no date and no weight: "הפתעה!" fills the band beside the cup.
     cup_left, cup_end = (W - (cup_right - date_right), W) if surprise else (date_right, cup_right)
@@ -409,7 +418,7 @@ def draw_label(c, product: dict, daily: dict, layout: dict, calibration: dict, a
         width = core.text_width_mm(core.SURPRISE_TEXT, font, size, su["kerning"])
         if width > avail:
             size *= avail / width
-        size = min(size, (band_h - 2.4) / (INK_ABOVE + INK_BELOW) * MM)
+        size = min(size, (band_content_h - 2.4) / (INK_ABOVE + INK_BELOW) * MM)
         draw_ink_middle(c, core.SURPRISE_TEXT, cup_left / 2, band_mid, size, su["weight"], su["kerning"], H, align="center")
     else:
         dl, ds = layout["date_label"], layout["date"]
@@ -421,7 +430,7 @@ def draw_label(c, product: dict, daily: dict, layout: dict, calibration: dict, a
             draw_ink_top(c, date, date_right / 2, top + ink_h(dl["size"]) + 1.6, ds["size"], ds["weight"], ds["kerning"], H, align="center")
 
     cup_cx = (cup_left + cup_end) / 2 - 0.6
-    radius = min(3.1, band_h / 2 - 2.6)
+    radius = min(3.1, band_content_h / 2 - 2.6)
     c.setStrokeColor(HexColor(design))
     c.setLineWidth(1.6)
     c.circle(cup_cx * MM, (H - band_mid) * MM, radius * MM, stroke=1, fill=0)
@@ -433,7 +442,7 @@ def draw_label(c, product: dict, daily: dict, layout: dict, calibration: dict, a
     c.circle(cup_cx * MM, (H - band_mid) * MM, radius * 0.63 * MM, stroke=0, fill=1)
 
     if not surprise:
-        draw_weight(c, daily, layout, cup_right, W, H, band_mid, band_h)
+        draw_weight(c, daily, layout, cup_right, W, H, band_mid, band_content_h)
 
     # ---- grid rules ------------------------------------------------------------
     c.setStrokeColor(HexColor(RULE))
@@ -441,7 +450,7 @@ def draw_label(c, product: dict, daily: dict, layout: dict, calibration: dict, a
     for rule_y in rules:
         c.line(0, (H - rule_y) * MM, W * MM, (H - rule_y) * MM)
     for x in ((cup_left,) if surprise else (date_right, cup_right)):
-        c.line(x * MM, (H - band_top) * MM, x * MM, 0)
+        c.line(x * MM, (H - band_top) * MM, x * MM, (H - band_bottom) * MM)
     return sorted(set(warnings))
 
 

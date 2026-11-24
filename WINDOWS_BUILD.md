@@ -107,3 +107,16 @@ To change it when launching from a terminal:
 set LABEL_ADMIN_PASSWORD=my-password
 LabelMaker_v2.exe
 ```
+
+## Releasing an update (v3.1+)
+
+1. Put the new version number in `VERSION` (e.g. `3.2.0`) and commit.
+2. Push a matching tag: `git tag v3.2.0 && git push origin v3.2.0`.
+3. The Windows Build workflow checks the tag matches `VERSION`, builds, and publishes
+   `LabelMaker_v2_Setup.exe` as a GitHub release.
+4. On the shop computer: press **בדיקת עדכונים** (bottom of the coffee list), enter the
+   update password, and confirm. The app downloads the installer, closes, installs
+   silently and reopens. Coffees and settings in `%LOCALAPPDATA%\LabelMaker_v2` are kept.
+
+The app never checks or installs updates on its own. Pushes to a branch still build
+test artifacts but do not create a release.

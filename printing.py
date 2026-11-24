@@ -3,9 +3,10 @@
 Each label type can be assigned its own printer (thermal for the preprinted
 labels, colour label printer for the narrow ones, office printer for A4).
 Pages are rasterised with pdfium at the printer's resolution and placed at
-their true physical size, compensating for the printer's unprintable margin,
-so there is no "fit to page" scaling. The printer's paper size itself comes
-from its Windows driver settings.
+their true physical size, centred on the paper and compensating for the
+printer's unprintable margin, so there is no "fit to page" scaling. The paper
+size and orientation come from the printer's own Windows settings; a portrait
+label on landscape media (or the reverse) is turned 90 degrees to fit.
 
 On non-Windows systems (development) direct printing is unavailable and the
 app falls back to the browser's print dialog.
@@ -30,10 +31,8 @@ except ImportError:  # pragma: no cover - exercised on non-Windows
 LOGPIXELSX, LOGPIXELSY = 88, 90
 PHYSICALOFFSETX, PHYSICALOFFSETY = 112, 113
 MAX_RENDER_DPI = 400  # enough for any label printer; larger is stretched by the driver
-# DEVMODE fields
-DM_ORIENTATION, DM_PAPERSIZE, DM_PAPERLENGTH, DM_PAPERWIDTH, DM_SCALE = 0x1, 0x2, 0x4, 0x8, 0x10
-DMPAPER_A4, DMPAPER_USER = 9, 256
-DMORIENT_PORTRAIT = 1
+PHYSICALWIDTH, PHYSICALHEIGHT = 110, 111
+DM_SCALE = 0x10
 
 
 class PrintError(RuntimeError):
@@ -56,8 +55,8 @@ def list_printers() -> dict:
     return {"available": True, "printers": names, "default": default}
 
 
-def job_devmode(printer: str, width_mm: float, height_mm: float):
-    """The printer's default settings with 100% scale and paper = the label size."""
+def job_devmode(printer: str):
+    """The printer's own settings (paper size, orientation) with scaling forced to 100%."""
     handle = win32print.OpenPrinter(printer)
     try:
         devmode = win32print.GetPrinter(handle, 2)["pDevMode"]
@@ -66,31 +65,35 @@ def job_devmode(printer: str, width_mm: float, height_mm: float):
     if devmode is None:
         return None
     devmode.Scale = 100
-    devmode.Orientation = DMORIENT_PORTRAIT
-    fields = DM_SCALE | DM_ORIENTATION | DM_PAPERSIZE
-    if abs(width_mm - 210) < 1 and abs(height_mm - 297) < 1:
-        devmode.PaperSize = DMPAPER_A4
-    else:
-        devmode.PaperSize = DMPAPER_USER
-        devmode.PaperWidth = round(width_mm * 10)    # tenths of a millimetre
-        devmode.PaperLength = round(height_mm * 10)
-        fields |= DM_PAPERWIDTH | DM_PAPERLENGTH
-    devmode.Fields = devmode.Fields | fields
+    devmode.Fields = devmode.Fields | DM_SCALE
     return devmode
 
 
-def printer_dc(printer: str, width_mm: float, height_mm: float):
-    """A device context for the job; falls back to the driver's own settings if it
-    rejects the requested paper size."""
+def printer_dc(printer: str):
+    """A device context for the job; falls back to plain driver defaults on any error."""
     try:
-        devmode = job_devmode(printer, width_mm, height_mm)
+        devmode = job_devmode(printer)
         if devmode is not None:
             return win32ui.CreateDCFromHandle(win32gui.CreateDC("WINSPOOL", printer, devmode))
-    except Exception:  # noqa: BLE001 - some drivers refuse custom sizes
+    except Exception:  # noqa: BLE001
         pass
     dc = win32ui.CreateDC()
     dc.CreatePrinterDC(printer)
     return dc
+
+
+def fit_to_media(image, width_px: int, height_px: int, media_w: int, media_h: int):
+    """Turn a portrait label 90 degrees for landscape media (and vice versa).
+
+    Label rolls are often loaded the other way round (e.g. 50x100 labels on a
+    100 mm wide roll). Square labels and matching orientations are left alone."""
+    label_landscape = width_px > height_px * 1.05
+    label_portrait = height_px > width_px * 1.05
+    media_landscape = media_w > media_h * 1.05
+    media_portrait = media_h > media_w * 1.05
+    if (label_portrait and media_landscape) or (label_landscape and media_portrait):
+        return image.rotate(90, expand=True), height_px, width_px, True
+    return image, width_px, height_px, False
 
 
 def print_pdf(pdf_bytes: bytes, printer: str, job_name: str = "Label") -> int:
@@ -102,15 +105,14 @@ def print_pdf(pdf_bytes: bytes, printer: str, job_name: str = "Label") -> int:
     import pypdfium2 as pdfium
 
     document = pdfium.PdfDocument(pdf_bytes)
-    first = document[0]
-    width_mm, height_mm = (v / 72 * 25.4 for v in first.get_size())
-    first.close()
-    dc = printer_dc(printer, width_mm, height_mm)
+    dc = printer_dc(printer)
     try:
         dpi_x = dc.GetDeviceCaps(LOGPIXELSX)
         dpi_y = dc.GetDeviceCaps(LOGPIXELSY)
         offset_x = dc.GetDeviceCaps(PHYSICALOFFSETX)
         offset_y = dc.GetDeviceCaps(PHYSICALOFFSETY)
+        media_w = dc.GetDeviceCaps(PHYSICALWIDTH)
+        media_h = dc.GetDeviceCaps(PHYSICALHEIGHT)
         render_scale = min(max(dpi_x, dpi_y), MAX_RENDER_DPI) / 72
         dc.StartDoc(job_name)
         pages = 0
@@ -121,11 +123,19 @@ def print_pdf(pdf_bytes: bytes, printer: str, job_name: str = "Label") -> int:
                 image = page.render(scale=render_scale).to_pil().convert("RGB")
             finally:
                 page.close()
-            # True physical size in device pixels, measured from the paper's edge.
+            # True physical size in device pixels.
             width_px = round(width_pt / 72 * dpi_x)
             height_px = round(height_pt / 72 * dpi_y)
+            if media_w and media_h:
+                image, width_px, height_px, _ = fit_to_media(image, width_px, height_px, media_w, media_h)
+                left = (media_w - width_px) // 2   # centred on the paper
+                top = (media_h - height_px) // 2
+            else:
+                left = top = 0
+            # Device coordinates start at the printable area, not the paper edge.
+            x0, y0 = left - offset_x, top - offset_y
             dc.StartPage()
-            ImageWin.Dib(image).draw(dc.GetHandleOutput(), (-offset_x, -offset_y, width_px - offset_x, height_px - offset_y))
+            ImageWin.Dib(image).draw(dc.GetHandleOutput(), (x0, y0, x0 + width_px, y0 + height_px))
             dc.EndPage()
             pages += 1
         dc.EndDoc()

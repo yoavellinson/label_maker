@@ -267,7 +267,9 @@ class UpdaterTests(unittest.TestCase):
 
 
 class FakeDC:
-    """Stands in for a Windows printer device context."""
+    """Stands in for a Windows printer device context (300 dpi, given paper size in mm)."""
+
+    media_mm = (100, 100)
 
     def __init__(self, log):
         self.log = log
@@ -277,7 +279,9 @@ class FakeDC:
 
     def GetDeviceCaps(self, index):
         return {printing.LOGPIXELSX: 300, printing.LOGPIXELSY: 300,
-                printing.PHYSICALOFFSETX: 50, printing.PHYSICALOFFSETY: 40}[index]
+                printing.PHYSICALOFFSETX: 50, printing.PHYSICALOFFSETY: 40,
+                printing.PHYSICALWIDTH: round(self.media_mm[0] / 25.4 * 300),
+                printing.PHYSICALHEIGHT: round(self.media_mm[1] / 25.4 * 300)}[index]
 
     def StartDoc(self, name):
         self.log.append(("doc", name))
@@ -323,7 +327,7 @@ class DirectPrintTests(unittest.TestCase):
         win32ui.CreateDC.side_effect = lambda: FakeDC(log)
         win32ui.CreateDCFromHandle.side_effect = lambda handle: FakeDC(log)
         win32gui = mock.Mock()
-        win32gui.CreateDC.side_effect = lambda driver, name, mode: log.append(("devmode", name, mode.PaperSize, mode.PaperWidth if mode.PaperSize == 256 else None, mode.Scale)) or 1
+        win32gui.CreateDC.side_effect = lambda driver, name, mode: log.append(("devmode", name, mode.Scale, mode.Fields)) or 1
         image_win = mock.Mock(Dib=FakeDib)
         patches = [
             mock.patch.object(printing, "win32gui", win32gui),
@@ -344,16 +348,34 @@ class DirectPrintTests(unittest.TestCase):
         draws = [entry for entry in log if entry[0] == "draw"]
         mm100 = round(100 / 25.4 * 300)
         self.assertEqual(draws[0][1], (-50, -40, mm100 - 50, mm100 - 40))
-        # The job asks the driver for 100% scale on 100 x 100 mm paper.
-        self.assertIn(("devmode", "Thermal", printing.DMPAPER_USER, 1000, 100), log)
+        # Only scaling is forced (100%); paper size/orientation stay the printer's own.
+        self.assertIn(("devmode", "Thermal", 100, printing.DM_SCALE), log)
 
-    def test_rotated_label_prints_on_rotated_page(self):
+    def draws_on_media(self, pdf, media_mm):
         log = self.fake_windows()
-        pdf, _ = full.label_pdf(BASE, DAILY, full.merged_layout({}), full.merged_calibration({"rotation": 90}), None)
+        FakeDC.media_mm = media_mm
+        self.addCleanup(setattr, FakeDC, "media_mm", (100, 100))
         printing.print_pdf(pdf, "Color Label")
-        draw = next(entry for entry in log if entry[0] == "draw")
-        width_px, height_px = draw[1][2] - draw[1][0], draw[1][3] - draw[1][1]
-        self.assertGreater(width_px, height_px)  # 100 x 50 mm landscape page
+        return [entry for entry in log if entry[0] == "draw"]
+
+    def test_narrow_label_turns_to_fit_landscape_roll(self):
+        pdf, _ = full.label_pdf(BASE, DAILY, full.merged_layout({}), full.merged_calibration({}), None)
+        draw = self.draws_on_media(pdf, (100, 50))[0]
+        x0, y0, x1, y1 = draw[1]
+        self.assertEqual((x1 - x0, y1 - y0), (round(100 / 25.4 * 300), round(50 / 25.4 * 300)))
+        self.assertEqual(draw[2][0] > draw[2][1], True)  # the image itself was turned
+
+    def test_narrow_label_on_portrait_media_is_not_turned(self):
+        pdf, _ = full.label_pdf(BASE, DAILY, full.merged_layout({}), full.merged_calibration({}), None)
+        x0, y0, x1, y1 = self.draws_on_media(pdf, (50, 100))[0][1]
+        self.assertLess(x1 - x0, y1 - y0)
+
+    def test_square_label_never_turned_and_centred(self):
+        pdf = core.label_pdf(core.compose(BASE, DAILY, LAYOUT), core.merged_calibration({}))
+        x0, y0, x1, y1 = self.draws_on_media(pdf, (104, 100))[0][1]
+        side = round(100 / 25.4 * 300)
+        self.assertEqual((x1 - x0, y1 - y0), (side, side))
+        self.assertEqual(x0, (round(104 / 25.4 * 300) - side) // 2 - 50)
 
     def test_unknown_printer_is_rejected(self):
         self.fake_windows()
@@ -459,6 +481,8 @@ class ApiTests(unittest.TestCase):
     def test_label_formats_route_to_the_right_renderer(self):
         import pypdfium2 as pdfium
 
+        self.client = layout_dev_app.app.test_client()
+
         def page_size(fmt):
             pdf = self.client.post("/api/print.pdf", json={"product": BASE, "daily": DAILY, "format": fmt}).data
             w, h = pdfium.PdfDocument(pdf)[0].get_size()
@@ -466,6 +490,15 @@ class ApiTests(unittest.TestCase):
             return (round(w / core.MM), round(h / core.MM)), text
 
         self.assertEqual(page_size("preprinted")[0], (100, 100))
+        import pypdfium2 as pdfium
+
+        def sheet_pages(**extra):
+            pdf = self.client.post("/api/print.pdf", json=dict({"product": BASE, "format": "sheet"}, **extra)).data
+            return len(pdfium.PdfDocument(pdf))
+
+        self.assertEqual(sheet_pages(), 1)                       # default: one full sheet
+        self.assertEqual(sheet_pages(copies=2), 2)               # counter is in sheets
+        self.assertEqual(sheet_pages(copies=1, start=7), 1)      # partly used sheet is finished, not spilled
         self.assertEqual(page_size("sheet")[0], (210, 297))
         self.assertEqual(page_size("full")[0], (50, 100))
         size, text = page_size("surprise")

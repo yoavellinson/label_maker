@@ -464,10 +464,9 @@ function setFormat(value, {resetWeight = false} = {}) {
   $("#sticker").classList.toggle("full", isNarrow() || isSheet());
   $("#sticker").classList.toggle("sheet", isSheet());
   $("#startGroup").hidden = !isSheet();
-  $("#copiesLabel").textContent = isSheet() ? "מספר מדבקות" : "עותקים";
+  $("#copiesLabel").textContent = isSheet() ? "מספר דפים (12 בכל דף)" : "עותקים";
   if (data) $("#start").max = perSheet();
-  if (isSheet() && !wasSheet && data) $("#copies").value = perSheet();
-  if (!isSheet() && wasSheet) $("#copies").value = 1;
+  if (isSheet() !== wasSheet) $("#copies").value = 1;  // one sheet / one label by default
   if (data) updatePrintTarget();
   if (resetWeight && DEFAULT_WEIGHT[labelFormat]) setWeight(DEFAULT_WEIGHT[labelFormat]);
   if (designer) renderDesigner();
@@ -491,7 +490,8 @@ async function updatePreview() {
   $("#sticker").style.aspectRatio = `${cal.sticker_w} / ${cal.sticker_h}`;
   $("#sticker").classList.add("loading");
   try {
-    const result = await api("/api/preview", {method: "POST", body: JSON.stringify({product: current, daily, ...settingsPayload()})});
+    const copies = Number($("#copies").value) || 1;
+    const result = await api("/api/preview", {method: "POST", body: JSON.stringify({product: current, daily, copies, ...settingsPayload()})});
     if (seq !== previewSeq) return;
     $("#textImg").src = result.image;
     renderNotes(result);

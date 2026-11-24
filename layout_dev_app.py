@@ -182,7 +182,12 @@ def sheet_label(payload: dict, outlines: bool = False) -> tuple[bytes, list[str]
     layout = sheet.merged_layout(pick(payload, db, "sheet_layout"))
     product = clean_product(payload.get("product") or {})
     art = full.design_art(master_pdf_path(), product["page"], core.merged_calibration(db.get("calibration")))
-    count = int(payload.get("copies") or sheet.labels_per_page(layout))
+    # In A4 mode the counter is in sheets: every sheet is filled completely, the
+    # first one from the chosen start slot.
+    per_page = sheet.labels_per_page(layout)
+    sheets = max(1, min(int(payload.get("copies") or 1), 50))
+    start = max(1, min(int(payload.get("start") or 1), per_page))
+    count = sheets * per_page - (start - 1)
     full_layout = full.merged_layout(pick(payload, db, "full_layout"))
     narrow_width = full.merged_calibration(pick(payload, db, "full_calibration"))["sticker_w"]
     return sheet.sheet_pdf(product, layout, art, full_layout, count=count, start=int(payload.get("start") or 1),
@@ -396,7 +401,7 @@ def build_print_pdf(payload: dict) -> tuple[bytes, str]:
     title = (payload.get("product") or {}).get("title", "")
     if label_format(payload) == "sheet":
         pdf, _, pages = sheet_label(payload, outlines=bool(payload.get("outlines")))
-        log.info("print sheet labels=%s start=%s pages=%s title=%s", copies, payload.get("start"), pages, title)
+        log.info("print sheet sheets=%s start=%s pages=%s title=%s", copies, payload.get("start"), pages, title)
         return pdf, "surprise-a4.pdf"
     if is_full(payload):
         pdf, _ = full_label(payload, copies=copies)

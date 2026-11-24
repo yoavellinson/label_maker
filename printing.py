@@ -33,6 +33,8 @@ PHYSICALOFFSETX, PHYSICALOFFSETY = 112, 113
 MAX_RENDER_DPI = 400  # enough for any label printer; larger is stretched by the driver
 PHYSICALWIDTH, PHYSICALHEIGHT = 110, 111
 DM_SCALE = 0x10
+DM_OUT_BUFFER, DM_IN_PROMPT, DM_IN_BUFFER = 2, 4, 8
+IDOK = 1
 
 
 class PrintError(RuntimeError):
@@ -55,11 +57,26 @@ def list_printers() -> dict:
     return {"available": True, "printers": names, "default": default}
 
 
-def job_devmode(printer: str):
-    """The printer's own settings (paper size, orientation) with scaling forced to 100%."""
+class PrintCancelled(PrintError):
+    pass
+
+
+def job_devmode(printer: str, prompt: bool = False):
+    """The printer's own settings (paper size, orientation) with scaling forced to 100%.
+
+    With `prompt`, the printer's own "Printing preferences" window opens first so
+    the settings can be checked; Cancel raises PrintCancelled."""
     handle = win32print.OpenPrinter(printer)
     try:
         devmode = win32print.GetPrinter(handle, 2)["pDevMode"]
+        if devmode is not None and prompt:
+            # Own the window by the foreground window (the browser) so it shows on top.
+            parent = win32gui.GetForegroundWindow() or 0
+            result = win32print.DocumentProperties(
+                parent, handle, printer, devmode, devmode, DM_IN_PROMPT | DM_IN_BUFFER | DM_OUT_BUFFER,
+            )
+            if result != IDOK:
+                raise PrintCancelled("ההדפסה בוטלה.")
     finally:
         win32print.ClosePrinter(handle)
     if devmode is None:
@@ -69,12 +86,14 @@ def job_devmode(printer: str):
     return devmode
 
 
-def printer_dc(printer: str):
-    """A device context for the job; falls back to plain driver defaults on any error."""
+def printer_dc(printer: str, prompt: bool = False):
+    """A device context for the job; falls back to plain driver defaults on driver errors."""
     try:
-        devmode = job_devmode(printer)
+        devmode = job_devmode(printer, prompt)
         if devmode is not None:
             return win32ui.CreateDCFromHandle(win32gui.CreateDC("WINSPOOL", printer, devmode))
+    except PrintCancelled:
+        raise
     except Exception:  # noqa: BLE001
         pass
     dc = win32ui.CreateDC()
@@ -96,7 +115,7 @@ def fit_to_media(image, width_px: int, height_px: int, media_w: int, media_h: in
     return image, width_px, height_px, False
 
 
-def print_pdf(pdf_bytes: bytes, printer: str, job_name: str = "Label") -> int:
+def print_pdf(pdf_bytes: bytes, printer: str, job_name: str = "Label", prompt: bool = False) -> int:
     """Print every page of the PDF on `printer` at 100% size. Returns pages printed."""
     if not available():
         raise PrintError("הדפסה ישירה זמינה רק במחשב Windows.")
@@ -105,7 +124,7 @@ def print_pdf(pdf_bytes: bytes, printer: str, job_name: str = "Label") -> int:
     import pypdfium2 as pdfium
 
     document = pdfium.PdfDocument(pdf_bytes)
-    dc = printer_dc(printer)
+    dc = printer_dc(printer, prompt)
     try:
         dpi_x = dc.GetDeviceCaps(LOGPIXELSX)
         dpi_y = dc.GetDeviceCaps(LOGPIXELSY)

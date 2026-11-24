@@ -319,6 +319,8 @@ class DirectPrintTests(unittest.TestCase):
                 log.append(("draw", box, self.image.size))
 
         win32print = mock.Mock(PRINTER_ENUM_LOCAL=2, PRINTER_ENUM_CONNECTIONS=4)
+        self.dialog_answer = printing.IDOK
+        win32print.DocumentProperties.side_effect = lambda *args: log.append(("dialog", args[2])) or self.dialog_answer
         win32print.EnumPrinters.return_value = [(0, "", name, "") for name in printers]
         win32print.GetDefaultPrinter.return_value = printers[0]
         devmode = mock.Mock(Fields=0)
@@ -350,6 +352,38 @@ class DirectPrintTests(unittest.TestCase):
         self.assertEqual(draws[0][1], (-50, -40, mm100 - 50, mm100 - 40))
         # Only scaling is forced (100%); paper size/orientation stay the printer's own.
         self.assertIn(("devmode", "Thermal", 100, printing.DM_SCALE), log)
+
+    def test_settings_window_before_printing(self):
+        log = self.fake_windows()
+        pdf = core.label_pdf(core.compose(BASE, DAILY, LAYOUT), core.merged_calibration({}))
+        printing.print_pdf(pdf, "Thermal", prompt=True)
+        self.assertIn(("dialog", "Thermal"), log)
+        self.assertTrue(any(entry[0] == "draw" for entry in log))
+
+    def test_cancel_in_settings_window_prints_nothing(self):
+        log = self.fake_windows()
+        self.dialog_answer = 2  # IDCANCEL
+        pdf = core.label_pdf(core.compose(BASE, DAILY, LAYOUT), core.merged_calibration({}))
+        with self.assertRaises(printing.PrintCancelled):
+            printing.print_pdf(pdf, "Thermal", prompt=True)
+        self.assertFalse(any(entry[0] in ("draw", "doc") for entry in log))
+
+    def test_prompt_setting_reaches_printer_and_can_be_turned_off(self):
+        from unittest import mock
+
+        self.fake_windows()
+        client = layout_dev_app.app.test_client()
+        client.post("/api/settings", json={"printers": {"preprinted": "Thermal"}})
+        self.assertTrue(client.get("/api/state").get_json()["print_prompt"])
+        seen = []
+        with mock.patch.object(printing, "print_pdf", side_effect=lambda pdf, printer, job_name, prompt: seen.append(prompt) or 1):
+            client.post("/api/print-direct", json={"product": BASE, "format": "preprinted"})
+            client.post("/api/settings", json={"print_prompt": False})
+            client.post("/api/print-direct", json={"product": BASE, "format": "preprinted"})
+        self.assertEqual(seen, [True, False])
+        with mock.patch.object(printing, "print_pdf", side_effect=printing.PrintCancelled("x")):
+            self.assertTrue(client.post("/api/print-direct", json={"product": BASE, "format": "preprinted"}).get_json()["cancelled"])
+        client.post("/api/settings", json={"printers": {}, "print_prompt": True})
 
     def draws_on_media(self, pdf, media_mm):
         log = self.fake_windows()
@@ -391,7 +425,7 @@ class DirectPrintTests(unittest.TestCase):
         client.post("/api/settings", json={"printers": assigned})
         self.assertEqual(client.get("/api/state").get_json()["printers"], assigned)
         sent = []
-        with mock.patch.object(printing, "print_pdf", side_effect=lambda pdf, printer, job_name: sent.append(printer) or 1):
+        with mock.patch.object(printing, "print_pdf", side_effect=lambda pdf, printer, job_name, prompt: sent.append(printer) or 1):
             for fmt in ("preprinted", "full", "surprise", "sheet"):
                 response = client.post("/api/print-direct", json={"product": BASE, "daily": DAILY, "format": fmt})
                 self.assertEqual(response.status_code, 200, response.get_json())

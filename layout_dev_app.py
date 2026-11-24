@@ -301,6 +301,7 @@ def state():
         "data_dir": str(DATA_DIR),
         "version": APP_VERSION,
         "printers": configured_printers(db),
+        "print_prompt": bool(db.get("print_prompt", True)),
         "direct_print": printing.available(),
     })
 
@@ -439,12 +440,17 @@ def printers():
 def print_direct():
     """Print on the printer assigned to this label type, without a dialog."""
     payload = request.get_json(force=True) or {}
-    printer = configured_printers(read_db()).get(label_format(payload), "")
+    db = read_db()
+    printer = configured_printers(db).get(label_format(payload), "")
+    prompt = bool(db.get("print_prompt", True))
     if not printer:
         return jsonify({"error": "לא הוגדרה מדפסת לסוג המדבקה הזה."}), 400
     pdf, name = build_print_pdf(payload)
     try:
-        pages = printing.print_pdf(pdf, printer, job_name=f"Label Maker - {name}")
+        pages = printing.print_pdf(pdf, printer, job_name=f"Label Maker - {name}", prompt=prompt)
+    except printing.PrintCancelled:
+        log.info("direct print cancelled in settings window (%s)", printer)
+        return jsonify({"cancelled": True, "printer": printer})
     except printing.PrintError as exc:
         log.warning("direct print failed on %s: %s", printer, exc)
         return jsonify({"error": str(exc)}), 502
@@ -501,6 +507,8 @@ def save_settings():
         db["full_calibration"] = full.merged_calibration(payload["full_calibration"])
     if "sheet_layout" in payload:
         db["sheet_layout"] = sheet.merged_layout(payload["sheet_layout"])
+    if "print_prompt" in payload:
+        db["print_prompt"] = bool(payload["print_prompt"])
     if "printers" in payload:
         db["printers"] = {fmt: str((payload["printers"] or {}).get(fmt) or "") for fmt in sorted(LABEL_FORMATS)}
     write_db(db)
@@ -513,6 +521,7 @@ def save_settings():
         "full_calibration": full.merged_calibration(db.get("full_calibration")),
         "sheet_layout": sheet.merged_layout(db.get("sheet_layout")),
         "printers": configured_printers(db),
+        "print_prompt": bool(db.get("print_prompt", True)),
     })
 
 

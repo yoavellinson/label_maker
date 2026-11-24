@@ -28,6 +28,7 @@ from flask import Flask, Response, jsonify, request, send_file
 import label_core as core
 import label_full as full
 import label_sheet as sheet
+import printing
 import updater
 
 
@@ -294,6 +295,8 @@ def state():
         "empty_product": core.EMPTY_PRODUCT,
         "data_dir": str(DATA_DIR),
         "version": APP_VERSION,
+        "printers": configured_printers(db),
+        "direct_print": printing.available(),
     })
 
 
@@ -387,26 +390,61 @@ def preview():
     })
 
 
-@app.post("/api/print.pdf")
-def print_pdf():
-    payload = request.get_json(force=True) or {}
+def build_print_pdf(payload: dict) -> tuple[bytes, str]:
+    """The PDF that gets printed for a request, and a file name for it."""
     copies = int(payload.get("copies") or 1)
+    title = (payload.get("product") or {}).get("title", "")
     if label_format(payload) == "sheet":
         pdf, _, pages = sheet_label(payload, outlines=bool(payload.get("outlines")))
-        log.info("print sheet labels=%s start=%s pages=%s title=%s", copies, payload.get("start"), pages, (payload.get("product") or {}).get("title", ""))
-        return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": "inline; filename=surprise-a4.pdf"})
+        log.info("print sheet labels=%s start=%s pages=%s title=%s", copies, payload.get("start"), pages, title)
+        return pdf, "surprise-a4.pdf"
     if is_full(payload):
         pdf, _ = full_label(payload, copies=copies)
-        log.info("print %s copies=%s title=%s", label_format(payload), copies, (payload.get("product") or {}).get("title", ""))
-        return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": "inline; filename=label.pdf"})
+        log.info("print %s copies=%s title=%s", label_format(payload), copies, title)
+        return pdf, "label.pdf"
     fields, _, calibration = compose_request()
     background = None
     if payload.get("with_background"):
         page = clean_product(payload.get("product") or {})["page"]
         background = core.background_png(master_pdf_path(), page, calibration, 24)
     pdf = core.label_pdf(fields, calibration, copies=copies, background_png=background)
-    log.info("print copies=%s background=%s title=%s", copies, bool(background), (payload.get("product") or {}).get("title", ""))
-    return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": "inline; filename=label.pdf"})
+    log.info("print copies=%s background=%s title=%s", copies, bool(background), title)
+    return pdf, "label.pdf"
+
+
+@app.post("/api/print.pdf")
+def print_pdf():
+    pdf, name = build_print_pdf(request.get_json(force=True) or {})
+    return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": f"inline; filename={name}"})
+
+
+def configured_printers(db: dict) -> dict:
+    stored = db.get("printers") or {}
+    return {fmt: str(stored.get(fmt) or "") for fmt in sorted(LABEL_FORMATS)}
+
+
+@app.get("/api/printers")
+def printers():
+    info = printing.list_printers()
+    info["assigned"] = configured_printers(read_db())
+    return jsonify(info)
+
+
+@app.post("/api/print-direct")
+def print_direct():
+    """Print on the printer assigned to this label type, without a dialog."""
+    payload = request.get_json(force=True) or {}
+    printer = configured_printers(read_db()).get(label_format(payload), "")
+    if not printer:
+        return jsonify({"error": "לא הוגדרה מדפסת לסוג המדבקה הזה."}), 400
+    pdf, name = build_print_pdf(payload)
+    try:
+        pages = printing.print_pdf(pdf, printer, job_name=f"Label Maker - {name}")
+    except printing.PrintError as exc:
+        log.warning("direct print failed on %s: %s", printer, exc)
+        return jsonify({"error": str(exc)}), 502
+    log.info("direct print %s pages on %s", pages, printer)
+    return jsonify({"ok": True, "printer": printer, "pages": pages})
 
 
 @app.post("/api/products")
@@ -458,6 +496,8 @@ def save_settings():
         db["full_calibration"] = full.merged_calibration(payload["full_calibration"])
     if "sheet_layout" in payload:
         db["sheet_layout"] = sheet.merged_layout(payload["sheet_layout"])
+    if "printers" in payload:
+        db["printers"] = {fmt: str((payload["printers"] or {}).get(fmt) or "") for fmt in sorted(LABEL_FORMATS)}
     write_db(db)
     _background_cache.clear()
     log.info("settings saved")
@@ -467,6 +507,7 @@ def save_settings():
         "full_layout": full.merged_layout(db.get("full_layout")),
         "full_calibration": full.merged_calibration(db.get("full_calibration")),
         "sheet_layout": sheet.merged_layout(db.get("sheet_layout")),
+        "printers": configured_printers(db),
     })
 
 

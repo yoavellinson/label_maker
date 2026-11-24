@@ -1,6 +1,6 @@
 #define MyAppName "Label Maker v2"
 #ifndef MyAppVersion
-  #define MyAppVersion "3.1.0"
+  #define MyAppVersion "3.2.0"
 #endif
 #define MyAppPublisher "Label Maker"
 #define MyAppExeName "LabelMaker_v2.exe"

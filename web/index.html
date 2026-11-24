@@ -76,6 +76,7 @@
   .copies input { width: 56px; text-align: center; border: 0; font-size: 17px; padding: 10px 0; }
   .print { justify-self: stretch; min-height: 56px; border: 0; border-radius: 10px; background: #141414; color: white; font-size: 21px; font-weight: 800; }
   .print:hover { background: #000; }
+  .print small { display: block; font-size: 12px; font-weight: 400; opacity: .75; margin-top: 2px; }
   .print:disabled { opacity: .5; cursor: wait; }
   .preprinted { font-size: 13px; color: var(--muted); padding: 10px 0; max-width: 150px; }
 
@@ -198,7 +199,7 @@
           <button id="copiesPlus" aria-label="יותר">+</button>
         </div>
       </div>
-      <button class="print" id="print">הדפסה</button>
+      <button class="print" id="print">הדפסה<small id="printTarget"></small></button>
     </div>
   </section>
 
@@ -467,6 +468,7 @@ function setFormat(value, {resetWeight = false} = {}) {
   if (data) $("#start").max = perSheet();
   if (isSheet() && !wasSheet && data) $("#copies").value = perSheet();
   if (!isSheet() && wasSheet) $("#copies").value = 1;
+  if (data) updatePrintTarget();
   if (resetWeight && DEFAULT_WEIGHT[labelFormat]) setWeight(DEFAULT_WEIGHT[labelFormat]);
   if (designer) renderDesigner();
   if (current) onEdit();
@@ -511,9 +513,29 @@ function renderNotes(result) {
 }
 
 // ---------- print ----------
+const FORMAT_NAMES = {preprinted: "רגילה 10×10", full: "צרה 5×10", surprise: "הפתעה 5×10", sheet: "הפתעה – דף A4"};
+function assignedPrinter() { return data.direct_print ? (data.printers || {})[labelFormat] || "" : ""; }
+function updatePrintTarget() {
+  const printer = assignedPrinter();
+  $("#printTarget").textContent = printer ? `← ${printer}` : "חלון הדפסה";
+}
+
 async function printLabel({withBackground = false, download = false, outlines = false} = {}) {
   const copies = Math.max(1, Math.min(500, Number($("#copies").value) || 1));
   $("#print").disabled = true;
+  if (!download && !withBackground && assignedPrinter()) {
+    try {
+      const result = await api("/api/print-direct", {method: "POST", body: JSON.stringify({
+        product: current, daily, copies, outlines, ...settingsPayload(),
+      })});
+      toast(`נשלח להדפסה: ${result.printer}`);
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      $("#print").disabled = false;
+    }
+    return;
+  }
   try {
     const blob = await api("/api/print.pdf", {method: "POST", body: JSON.stringify({
       product: current, daily, copies: withBackground ? 1 : copies, with_background: withBackground, outlines, ...settingsPayload(),
@@ -621,6 +643,22 @@ const SHEET_SECTIONS = [
   ]],
 ];
 
+let printerInfo = null;
+
+function printersSection() {
+  if (!printerInfo || !printerInfo.available) {
+    return `<h3>מדפסות</h3><p class="hint">הדפסה ישירה למדפסת זמינה רק במחשב ה-Windows. כאן ההדפסה נפתחת בחלון ההדפסה.</p>`;
+  }
+  const options = (selected) => [`<option value="">חלון הדפסה (בחירה בכל פעם)</option>`]
+    .concat(printerInfo.printers.map((name) => `<option value="${escapeHtml(name)}"${name === selected ? " selected" : ""}>${escapeHtml(name)}${name === printerInfo.default ? " (ברירת מחדל)" : ""}</option>`))
+    .join("");
+  let html = `<h3>מדפסות</h3><div class="dgrid">`;
+  for (const fmt of ["preprinted", "full", "surprise", "sheet"]) {
+    html += `<label class="full">${FORMAT_NAMES[fmt]}<select data-printer="${fmt}">${options(designer.printers[fmt] || "")}</select></label>`;
+  }
+  return html + `</div><p class="hint">גודל הנייר נקבע בהגדרות המדפסת ב-Windows. ההדפסה תמיד בגודל אמיתי (100%).</p>`;
+}
+
 function designerFull() { return isNarrow(); }
 
 function renderDesigner() {
@@ -643,6 +681,7 @@ function renderDesigner() {
     }
     html += `</div>`;
   }
+  html += printersSection();
   html += `<p class="hint">מילים לסדר השורות: ${Object.values(data.row_items).join(", ")}. התצוגה מתעדכנת מיד; השינויים נשמרים רק בלחיצה על "שמירת הגדרות".</p>
     <div class="btn-row" style="margin-top:10px">
       <button class="btn" id="dSave">שמירת הגדרות</button>
@@ -657,6 +696,9 @@ function renderDesigner() {
     <button class="btn secondary" id="dImport">ייבוא קפה מגרסה 1</button>`;
   root.innerHTML = html;
   for (const el of root.querySelectorAll("select[data-path]")) el.value = String(getPath(designer, el.dataset.path));
+  for (const el of root.querySelectorAll("select[data-printer]")) {
+    el.addEventListener("change", () => { designer.printers[el.dataset.printer] = el.value; });
+  }
   for (const el of root.querySelectorAll("[data-path]")) {
     el.addEventListener("input", () => {
       const kind = el.dataset.kind;
@@ -670,6 +712,7 @@ function renderDesigner() {
     try {
       const saved = await api("/api/settings", {method: "POST", body: JSON.stringify(designer)});
       Object.assign(data, saved);
+      updatePrintTarget();
       toast("ההגדרות נשמרו");
     } catch (e) { toast(e.message, true); }
   });
@@ -711,8 +754,10 @@ function toggleDesigner() {
       layout: data.layout, calibration: data.calibration,
       full_layout: data.full_layout, full_calibration: data.full_calibration,
       sheet_layout: data.sheet_layout,
+      printers: {...(data.printers || {})},
     });
     renderDesigner();
+    api("/api/printers").then((info) => { printerInfo = info; if (designer) renderDesigner(); }).catch(() => {});
     $("#designer").hidden = false;
     $("#toggleDesigner").textContent = "✕ סגירת מצב מעצב";
     $("#toggleDesigner").setAttribute("aria-pressed", "true");
@@ -836,6 +881,7 @@ async function init() {
     return;
   }
   $("#appVersion").textContent = `גרסה ${data.version}`;
+  updatePrintTarget();
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
   $("#date").value = daily.date;
   $("#copies").value = saved.copies || 1;

@@ -21,6 +21,7 @@ import label_core as core  # noqa: E402
 import label_full as full  # noqa: E402
 import label_sheet as sheet  # noqa: E402
 import layout_dev_app  # noqa: E402
+import printing  # noqa: E402
 import updater  # noqa: E402
 
 core.register_fonts(ROOT / "fonts")
@@ -254,6 +255,103 @@ class UpdaterTests(unittest.TestCase):
             self.assertFalse(client.post("/api/update/check", json={"password": "yoav"}).get_json()["available"])
         self.assertEqual(client.post("/api/update/install", json={"password": "yoav"}).status_code, 400)
         self.assertEqual(client.post("/api/update/install", json={"password": "x"}).status_code, 403)
+
+
+class FakeDC:
+    """Stands in for a Windows printer device context."""
+
+    def __init__(self, log):
+        self.log = log
+
+    def CreatePrinterDC(self, name):
+        self.log.append(("printer", name))
+
+    def GetDeviceCaps(self, index):
+        return {printing.LOGPIXELSX: 300, printing.LOGPIXELSY: 300,
+                printing.PHYSICALOFFSETX: 50, printing.PHYSICALOFFSETY: 40}[index]
+
+    def StartDoc(self, name):
+        self.log.append(("doc", name))
+
+    def StartPage(self):
+        pass
+
+    def EndPage(self):
+        self.log.append(("page",))
+
+    def EndDoc(self):
+        self.log.append(("end",))
+
+    def AbortDoc(self):
+        pass
+
+    def DeleteDC(self):
+        pass
+
+    def GetHandleOutput(self):
+        return 0
+
+
+class DirectPrintTests(unittest.TestCase):
+    def fake_windows(self, printers=("Thermal", "Color Label", "Office A4")):
+        from unittest import mock
+
+        log = []
+
+        class FakeDib:
+            def __init__(self, image):
+                self.image = image
+
+            def draw(self, handle, box):
+                log.append(("draw", box, self.image.size))
+
+        win32print = mock.Mock(PRINTER_ENUM_LOCAL=2, PRINTER_ENUM_CONNECTIONS=4)
+        win32print.EnumPrinters.return_value = [(0, "", name, "") for name in printers]
+        win32print.GetDefaultPrinter.return_value = printers[0]
+        win32ui = mock.Mock()
+        win32ui.CreateDC.side_effect = lambda: FakeDC(log)
+        image_win = mock.Mock(Dib=FakeDib)
+        patches = [
+            mock.patch.object(printing, "win32print", win32print),
+            mock.patch.object(printing, "win32ui", win32ui),
+            mock.patch.object(printing, "ImageWin", image_win),
+            mock.patch.object(printing.os, "name", "nt"),
+        ]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        return log
+
+    def test_prints_at_actual_size_compensating_printer_margin(self):
+        log = self.fake_windows()
+        pdf = core.label_pdf(core.compose(BASE, DAILY, LAYOUT), core.merged_calibration({}), copies=2)
+        self.assertEqual(printing.print_pdf(pdf, "Thermal"), 2)
+        draws = [entry for entry in log if entry[0] == "draw"]
+        mm100 = round(100 / 25.4 * 300)
+        self.assertEqual(draws[0][1], (-50, -40, mm100 - 50, mm100 - 40))
+        self.assertIn(("printer", "Thermal"), log)
+
+    def test_unknown_printer_is_rejected(self):
+        self.fake_windows()
+        with self.assertRaises(printing.PrintError):
+            printing.print_pdf(b"%PDF", "Missing")
+
+    def test_each_label_type_goes_to_its_printer(self):
+        from unittest import mock
+
+        self.fake_windows()
+        client = layout_dev_app.app.test_client()
+        assigned = {"preprinted": "Thermal", "full": "Color Label", "surprise": "Color Label", "sheet": "Office A4"}
+        client.post("/api/settings", json={"printers": assigned})
+        self.assertEqual(client.get("/api/state").get_json()["printers"], assigned)
+        sent = []
+        with mock.patch.object(printing, "print_pdf", side_effect=lambda pdf, printer, job_name: sent.append(printer) or 1):
+            for fmt in ("preprinted", "full", "surprise", "sheet"):
+                response = client.post("/api/print-direct", json={"product": BASE, "daily": DAILY, "format": fmt})
+                self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertEqual(sent, ["Thermal", "Color Label", "Color Label", "Office A4"])
+        client.post("/api/settings", json={"printers": {}})
+        self.assertEqual(client.post("/api/print-direct", json={"product": BASE, "format": "full"}).status_code, 400)
 
 
 class MigrationTests(unittest.TestCase):
